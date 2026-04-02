@@ -1,5 +1,14 @@
 
         import * as THREE from 'three';
+window.addEventListener('error', function(event) {
+    document.exitPointerLock(); // Free the mouse
+    alert("🚨 FATAL JS ERROR! 🚨\n\nMESSAGE: " + event.message + "\nLINE: " + event.lineno);
+});
+
+window.addEventListener('unhandledrejection', function(event) {
+    document.exitPointerLock();
+    alert("🚨 PROMISE FAILED! 🚨\n\nREASON: " + event.reason);
+});
 
         // ============================================================
         //  MAZE GENERATION
