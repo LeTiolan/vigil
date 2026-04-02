@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vigil Remnants</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- =============================================
+         IN-GAME HUD ELEMENTS
+         ============================================= -->
+
+    <!-- THREAT INDICATOR: thin strip at top of screen, fills red as enemies close in -->
+    <div id="threat-bar"><div id="threat-fill"></div></div>
+
+    <!-- ORB COUNTER: top-left -->
+    <div id="ui" class="clunky-panel">
+        <span class="hud-icon">◈</span> ORBS: <span id="orbCount">0</span> / <span id="totalOrbsUI">0</span>
+    </div>
+
+    <!-- TIMER: top-right -->
+    <div id="timer-ui" class="clunky-panel">
+        <span class="hud-icon">⧗</span> TIME: <span id="timeVal">0.0</span>s
+    </div>
+
+    <!-- STAMINA: bottom-center, now with label and tick marks via CSS -->
+    <div id="stamina-wrapper">
+        <div id="stamina-label" class="clunky-panel">▶ STAMINA</div>
+        <div id="stamina-container">
+            <div id="stamina-bar"></div>
+        </div>
+    </div>
+
+    <!-- CROSSHAIR: center -->
+    <div id="crosshair"></div>
+
+    <!-- RADAR: bottom-right, now with label -->
+    <div id="radar-wrapper">
+        <div id="radar-label" class="clunky-panel">TACTICAL</div>
+        <canvas id="radar" width="160" height="160"></canvas>
+    </div>
+
+    <!-- VIGNETTE: full-screen darkening overlay for sprint/enemy proximity -->
+    <div id="vignette"></div>
+
+    <!-- FADE TO BLACK: used by win condition -->
+    <div id="fade-black"></div>
+
+    <!-- =============================================
+         MAIN MENU
+         ============================================= -->
+    <div id="main-ui">
+        <div class="grid-container">
+            <div class="left-col">
+                <div class="checklist">
+                    <u style="text-decoration-thickness: 2px;">OBJECTIVES</u><br><br>
+                    [ ] EXTRACT ORBS<br>
+                    [ ] MONITOR STAMINA<br>
+                    [ ] FIND THE BREACH
+                </div>
+                <div class="panel" style="margin-top: 20px;">
+                    <div class="header-title">SETTINGS</div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px;">
+                        <div></div><div class="key" style="text-align:center">W</div><div></div>
+                        <div class="key" style="text-align:center">A</div><div class="key" style="text-align:center">S</div><div class="key" style="text-align:center">D</div>
+                    </div>
+                    <div class="setting-row">AUDIO UNIT <input type="checkbox" checked></div>
+                    <div class="setting-row">SHADOW GEN <input type="checkbox" checked></div>
+                    <div class="setting-row">SENSITIVITY <input type="range" style="width: 100px;"></div>
+                </div>
+            </div>
+
+            <div class="center-col panel" style="padding: 45px;">
+                <div>
+                    <h1 id="main-title">VIGIL REMNANTS</h1>
+                    <div class="version">V1.0.4 // HYDRAULIC BUILD</div>
+                </div>
+                <div class="lore-box" id="lore-text">...LOADING LORE...</div>
+                
+                <div class="input-container">
+                    <div class="input-bg" id="input-bg-text">NAMETAG</div>
+                    <input type="text" id="name-input" class="input-plate" maxlength="15">
+                </div>
+
+                <div class="hazard-wrap">
+                    <button id="engage-btn">ENGAGE MECHANISM</button>
+                </div>
+            </div>
+
+            <div class="right-col">
+                <div class="panel">
+                    <div class="header-title">Survivor Metrics</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="stat-box">BEST<span class="stat-val">--:--</span></div>
+                        <div class="stat-box">TRY<span class="stat-val">0</span></div>
+                        <div class="stat-box" style="grid-column: span 2; color:#00eeff;">ORBS: <span class="stat-val" id="menuOrbCount" style="display:inline; margin-left:10px;">0</span></div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="header-title">Records Archive</div>
+                    <div class="archives">
+                        <div style="color: #3e2e21; text-align: center; margin-top: 45px; font-weight: bold; font-size: 0.8em;">NO ARCHIVES FOUND</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =============================================
+         WIN SCREEN
+         ============================================= -->
+    <div id="win-screen" class="overlay">
+        <div class="overlay-box">
+            <h1 style="color: #77ff77;">ESCAPED</h1>
+            <p>You have breached the outer wall.</p>
+            <h2 id="finalTime">TIME: 0.0s</h2>
+            <button onclick="location.reload()">RECALIBRATE & RESTART</button>
+        </div>
+    </div>
+
+    <!-- =============================================
+         DEATH SCREEN
+         ============================================= -->
+    <div id="death-screen-ui">
+        <div class="void-bg"></div>
+        <div class="scanlines"></div>
+        
+        <div class="death-container">
+            <h1>SIGNAL LOST</h1>
+            
+            <div class="corrupted-panel">
+                <div class="post-mortem-box">
+                    <div class="header-title">Post-Mortem Metrics</div>
+                    <div class="setting-row">TIME SURVIVED <span class="stat-val" id="time-stat">00:00</span></div>
+                    <div class="setting-row">ORBS EXTRACTED <span class="stat-val" id="orb-stat">0 / 12</span></div>
+                    <div class="setting-row" style="margin-bottom: 0;">CAUSE OF DEATH <span class="stat-val" style="font-size:1em; color:#ff3333;">PHANTOM</span></div>
+                </div>
+                <button id="reboot-btn">INITIATE REBOOT</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
