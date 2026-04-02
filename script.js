@@ -972,7 +972,27 @@
             }
         }
 
-        function animate(){requestAnimationFrame(animate);update();renderer.render(scene,camera);}animate();
+      let hasCrashed = false; // Prevents the alert from spamming 60 times a second
+
+function animate() {
+    requestAnimationFrame(animate);
+    
+    if (hasCrashed) return; // If it crashed once, stop the loop forever
+    
+    try {
+        update();
+        renderer.render(scene, camera);
+    } catch (error) {
+        hasCrashed = true; 
+        try { document.exitPointerLock(); } catch(e){} // Give you your mouse back
+        
+        // Show the exact error message on the screen!
+        alert("🚨 GAME CRASHED! 🚨\n\nERROR MESSAGE: " + error.message);
+    }
+}
+
+// Make sure to call it once to start the loop, just like you had before!
+animate();
 
         window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
 
