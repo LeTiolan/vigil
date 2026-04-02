@@ -51,7 +51,7 @@
         //  GAME STATE
         // ============================================================
         const totalOrbs = 12; let orbsCollected = 0; let gameActive = false; let gameWon = false;
-        let startTime = 0; let accumulatedTime = 0; let hasPlayedSting = false; let prevTime = performance.now();
+      let startTime = 0; let accumulatedTime = 0; let totalElapsed = 0; let hasPlayedSting = false; let prevTime = performance.now();
         document.getElementById('totalOrbsUI').innerText = totalOrbs;
 
         let yaw = Math.PI; let pitch = 0; const SENSITIVITY = 0.002;
@@ -69,10 +69,11 @@
             stamina: MAX_STAMINA, isExhausted: false,
             velocity: new THREE.Vector2(0,0), headBobTimer: 0, lastFootstepCycle: 0
         };
-        const keys = {};
+      const keys = {};
 
-        const radarCanvas = document.getElementById('radar'); const rCtx = radarCanvas.getContext('2d');
-        const rCenter = radarCanvas.width/2; const radarMaxDist = 120; const radarScale = (rCenter-10)/radarMaxDist;
+const nameInput = document.getElementById('name-input');
+const radarCanvas = document.getElementById('radar'); const rCtx = radarCanvas.getContext('2d');
+const rCenter = radarCanvas.width/2; const radarMaxDist = 120; const radarScale = (rCenter-10)/radarMaxDist;
 
         // ============================================================
         //  AUDIO ENGINE
@@ -862,6 +863,7 @@
                 if(ud.state!=='patrol'){
                     ud.afterimageTimer-=delta;if(ud.afterimageTimer<=0){ud.afterimageTimer=0.35;emitAfterimage(enemy.position.x,enemy.position.y,enemy.position.z);}
                 }
+
 
                 // Radar: ONLY draw alerted/searching enemies — no constant ping for patrol
                 if(ud.state!=='patrol'){
