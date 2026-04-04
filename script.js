@@ -26,12 +26,57 @@
         //  PATHFINDING — parent-map BFS, O(n) memory
         // ================================================================
         function worldToGrid(wx,wz){const o=Math.floor(MAZE_SIZE/2);return{x:Math.max(0,Math.min(MAZE_SIZE-1,Math.round(wx/TILE_SIZE)+o)),z:Math.max(0,Math.min(MAZE_SIZE-1,Math.round(wz/TILE_SIZE)+o))};}
-        function bfsPath(sx,sz,gx,gz){
-            if(sx===gx&&sz===gz)return[];
-            const q=[{x:sx,z:sz}],par=new Map();par.set(`${sx},${sz}`,null);let it=0;
-            while(q.length&&it++<2500){const{x,z}=q.shift();for(const[dx,dz]of[[0,-1],[0,1],[-1,0],[1,0]]){const nx=x+dx,nz=z+dz,k=`${nx},${nz}`;if(nx<0||nx>=MAZE_SIZE||nz<0||nz>=MAZE_SIZE||maze[nx][nz]!==0||par.has(k))continue;par.set(k,`${x},${z}`);if(nx===gx&&nz===gz){const p=[];let c=k;while(c){const[px,pz]=c.split(',').map(Number);p.unshift({x:px,z:pz});c=par.get(c);}if(p.length&&p[0].x===sx&&p[0].z===sz)p.shift();return p;}q.push({x:nx,z:nz});}}
-            return[];
+       function heuristic(x1, z1, x2, z2) {
+            return Math.abs(x1 - x2) + Math.abs(z1 - z2);
         }
+
+        function aStarPath(sx, sz, gx, gz) { // Replaced BFS with A*
+            if(sx === gx && sz === gz) return [];
+            
+            const openSet = [{x: sx, z: sz, g: 0, f: heuristic(sx, sz, gx, gz)}];
+            const cameFrom = new Map();
+            const gScore = new Map();
+            gScore.set(`${sx},${sz}`, 0);
+
+            let it = 0;
+            while(openSet.length > 0 && it++ < 2500) {
+                openSet.sort((a, b) => a.f - b.f);
+                const current = openSet.shift();
+
+                if(current.x === gx && current.z === gz) {
+                    const path = [];
+                    let currKey = `${current.x},${current.z}`;
+                    while(cameFrom.has(currKey)) {
+                        const [px, pz] = currKey.split(',').map(Number);
+                        path.unshift({x: px, z: pz});
+                        currKey = cameFrom.get(currKey);
+                    }
+                    if(path.length) path.shift();
+                    return path;
+                }
+
+                const neighbors = [[0,-1],[0,1],[-1,0],[1,0]];
+                for(const [dx, dz] of neighbors) {
+                    const nx = current.x + dx, nz = current.z + dz;
+                    if(nx < 0 || nx >= MAZE_SIZE || nz < 0 || nz >= MAZE_SIZE || maze[nx][nz] === 1) continue;
+
+                    const tentative_g = gScore.get(`${current.x},${current.z}`) + 1;
+                    const nKey = `${nx},${nz}`;
+
+                    if(tentative_g < (gScore.get(nKey) || Infinity)) {
+                        cameFrom.set(nKey, `${current.x},${current.z}`);
+                        gScore.set(nKey, tentative_g);
+                        const f = tentative_g + heuristic(nx, nz, gx, gz);
+                        if(!openSet.some(n => n.x === nx && n.z === nz)) {
+                            openSet.push({x: nx, z: nz, g: tentative_g, f: f});
+                        }
+                    }
+                }
+            }
+            return [];
+        }
+        // Aliased to keep original function calls intact
+        function bfsPath(sx,sz,gx,gz){ return aStarPath(sx,sz,gx,gz); }
         function hasLOS(ax,az,bx,bz){
             const g0=worldToGrid(ax,az),g1=worldToGrid(bx,bz),steps=Math.max(Math.abs(g1.x-g0.x),Math.abs(g1.z-g0.z));
             if(!steps)return true;
