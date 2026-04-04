@@ -89,9 +89,13 @@
         renderer.shadowMap.type=THREE.BasicShadowMap;
         document.body.appendChild(renderer.domElement);
 // Bodycam flashlight — two overlapping spots create ring falloff effect
-        const flash1=new THREE.SpotLight(0xfff0d8,90,60,Math.PI/10,0.05,1.8); // tight bright core
+        
+        // Changed Math.PI/10 to Math.PI/6 for a wider bright core
+        const flash1=new THREE.SpotLight(0xfff0d8,90,60,Math.PI/6,0.05,1.8); 
         flash1.castShadow=true; flash1.shadow.mapSize.setScalar(512); flash1.shadow.bias=-0.002;
-        const flash2=new THREE.SpotLight(0xffe8c0,18,30,Math.PI/5,0.75,2.2); // wide dim halo ring
+        
+        // Changed Math.PI/5 to Math.PI/3 for a wider dim halo ring
+        const flash2=new THREE.SpotLight(0xffe8c0,18,30,Math.PI/3,0.75,2.2); 
         flash2.castShadow=false;
 
         // Center both lights inside the camera
