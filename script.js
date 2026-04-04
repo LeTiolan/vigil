@@ -599,7 +599,7 @@
             for(const o of orbs) if(Math.hypot(pos.x-o.position.x,pos.z-o.position.z)<20){near=true;break;}
             if(!near){
                 const mat=new THREE.MeshBasicMaterial({color:0x00eeff});
-                const orb=new THREE.Mesh(new THREE.SphereGeometry(0.45,10,10),mat);
+                const orb=new THREE.Mesh(new THREE.SphereGeometry(0.90,10,10),mat);
                 orb.position.set(pos.x,1.5,pos.z);
                 // Floor ring for pickup clarity
                 const rMat=new THREE.MeshBasicMaterial({color:0x00eeff,transparent:true,opacity:0.3,depthWrite:false});
