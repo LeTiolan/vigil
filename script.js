@@ -125,7 +125,7 @@
 
       // Lights
         const hemi=new THREE.HemisphereLight(0x1a2030,0x0a0810,0.5); scene.add(hemi);
-        const flash=new THREE.SpotLight(0xffe8c0,80,180,Math.PI/4.5,0.45,1.5);
+        const flash=new THREE.SpotLight(0xffe8c0,80,180,Math.PI/3.5,0.45,1.5);
         flash.position.set(0, 0, 0); 
         flash.castShadow=true; flash.shadow.mapSize.setScalar(512); flash.shadow.bias=-0.002;
         camera.add(flash); camera.add(flash.target); flash.target.position.set(0,0,-1); scene.add(camera);
