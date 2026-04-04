@@ -212,15 +212,15 @@
         function playFootstep(sprint){
             resume();
             const buf=buildFootBuf(sprint);
-            // Low thud component
+        // Low thud component (LOUDER)
             const s1=audioCtx.createBufferSource();s1.buffer=buf;
             const lp=audioCtx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=sprint?100:70;
-            const g1=audioCtx.createGain();g1.gain.value=sprint?0.18:0.10;
+            const g1=audioCtx.createGain();g1.gain.value=sprint?0.35:0.20;
             s1.connect(lp);lp.connect(g1);g1.connect(audioCtx.destination);s1.start();
-            // Mid body
+            // Mid body (LOUDER)
             const s2=audioCtx.createBufferSource();s2.buffer=buf;
             const bp=audioCtx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=sprint?240:160;bp.Q.value=1.8;
-            const g2=audioCtx.createGain();g2.gain.value=sprint?0.07:0.04;
+            const g2=audioCtx.createGain();g2.gain.value=sprint?0.15:0.08;
             s2.connect(bp);bp.connect(g2);g2.connect(audioCtx.destination);s2.start();
             // Short reverb tail
             const s3=audioCtx.createBufferSource();s3.buffer=buf;
