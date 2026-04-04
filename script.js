@@ -38,10 +38,17 @@
             const gScore = new Map();
             gScore.set(`${sx},${sz}`, 0);
 
-            let it = 0;
+         let it = 0;
             while(openSet.length > 0 && it++ < 2500) {
-                openSet.sort((a, b) => a.f - b.f);
-                const current = openSet.shift();
+                // OPTIMIZATION: Linear search instead of array sorting prevents the game-breaking lag spike
+                let lowestIdx = 0;
+                for(let i = 1; i < openSet.length; i++) {
+                    if(openSet[i].f < openSet[lowestIdx].f) {
+                        lowestIdx = i;
+                    }
+                }
+                const current = openSet[lowestIdx];
+                openSet.splice(lowestIdx, 1); // Remove the selected node from the open set
 
                 if(current.x === gx && current.z === gz) {
                     const path = [];
