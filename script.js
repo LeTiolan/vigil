@@ -87,11 +87,11 @@
         // ================================================================
         //  CONSTANTS & STATE
         // ================================================================
-        const TOTAL_ORBS=12, MAX_STAMINA=200;
+    const TOTAL_ORBS=12, MAX_STAMINA=120; // Lower stamina
         // AI tuning
         const ALERT_DUR=11.0, HUNT_DUR=8.0, SEARCH_DUR=14.0;
         const LIGHT_RANGE=36, CONE_COS=Math.cos(58*Math.PI/180);
-        const SPRINT_ALERT_R=22, PATROL_SPD=0.11, ALERT_SPD=0.21, HUNT_SPD=0.24, SEARCH_SPD=0.09;
+        const SPRINT_ALERT_R=22, PATROL_SPD=0.15, ALERT_SPD=0.32, HUNT_SPD=0.40, SEARCH_SPD=0.12; // Much faster enemies
         const ENEMY_NAMES=['REVENANT','UNIT-07','SPECTER-X','THE HOLLOW','SHADE-03','ECHO-NULL','WRAITH','ABSENCE'];
 
         let orbsCollected=0, gameActive=false, gameWon=false;
