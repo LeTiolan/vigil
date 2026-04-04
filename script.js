@@ -88,23 +88,28 @@
         renderer.shadowMap.enabled=true;
         renderer.shadowMap.type=THREE.BasicShadowMap;
         document.body.appendChild(renderer.domElement);
-// Bodycam flashlight — two overlapping spots create ring falloff effect
+// Bodycam flashlight — Bigger, detailed, and toggleable
+        let flashlightOn = true;
+        const flash1=new THREE.SpotLight(0xfffdd8,150,80,Math.PI/4,0.1,1.8); 
+        flash1.castShadow=true; flash1.shadow.mapSize.setScalar(1024); flash1.shadow.bias=-0.001;
         
-        // Changed Math.PI/10 to Math.PI/6 for a wider bright core
-        const flash1=new THREE.SpotLight(0xfff0d8,90,60,Math.PI/6,0.05,1.8); 
-        flash1.castShadow=true; flash1.shadow.mapSize.setScalar(512); flash1.shadow.bias=-0.002;
-        
-        // Changed Math.PI/5 to Math.PI/3 for a wider dim halo ring
-        const flash2=new THREE.SpotLight(0xffe8c0,18,30,Math.PI/3,0.75,2.2); 
+        const flash2=new THREE.SpotLight(0xffe8c0,30,45,Math.PI/2.5,0.8,2.2); 
         flash2.castShadow=false;
 
-        // Center both lights inside the camera
         flash1.position.set(0, 0, 0);
         flash2.position.set(0, 0, 0);
 
-        // Both attached to camera, target offset to look exactly forward
         camera.add(flash1); camera.add(flash1.target); flash1.target.position.set(0,0,-1);
         camera.add(flash2); camera.add(flash2.target); flash2.target.position.set(0,0,-1);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyF' && gameActive) {
+                flashlightOn = !flashlightOn;
+                flash1.intensity = flashlightOn ? 150 : 0;
+                flash2.intensity = flashlightOn ? 30 : 0;
+                playTerminalClick(); 
+            }
+        });
         
         // Add the camera (and its attached lights) to the scene
         scene.add(camera);
