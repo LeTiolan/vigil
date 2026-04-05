@@ -628,6 +628,8 @@ function playFlashlightClick() {
                 }
             }
         }
+const startPos=getPos(1,1);
+        camera.position.set(startPos.x,player.height,startPos.z);camera.rotation.set(0,yaw,0);
         // ================================================================
         //  TITAN DOOR — fully rebuilt, purpose-built, no overlapping parts
         // ================================================================
