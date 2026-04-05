@@ -547,11 +547,27 @@ function playFlashlightClick() {
         iWallMesh.instanceMatrix.needsUpdate = true;
         scene.add(iWallMesh);
 
-// --- SIMPLE FUNCTIONING LIGHTS ---
+// --- SIMPLE FUNCTIONING LIGHTS (Keeping Original Fixture) ---
         const corridorLights = [];
         {
             const sp = getPos(1, 1);
             let added = 0;
+            
+            // 1. Procedural Scratched Texture (Keeping your original material!)
+            const lightTexCanvas = document.createElement('canvas');
+            lightTexCanvas.width = lightTexCanvas.height = 64;
+            const ltCtx = lightTexCanvas.getContext('2d');
+            ltCtx.fillStyle = '#222'; ltCtx.fillRect(0,0,64,64);
+            for(let i=0; i<400; i++) {
+                ltCtx.fillStyle = `rgba(255,255,255,${Math.random()*0.05})`;
+                ltCtx.fillRect(Math.random()*64, Math.random()*64, 1, 10 * Math.random());
+            }
+            const lightTex = new THREE.CanvasTexture(lightTexCanvas);
+            lightTex.magFilter = THREE.NearestFilter;
+
+            const fixtureMat = new THREE.MeshStandardMaterial({
+                map: lightTex, color: 0x444444, roughness: 0.8, metalness: 0.3
+            });
 
             for(const cell of emptyCells) {
                 if(added >= 14) break;
@@ -559,7 +575,35 @@ function playFlashlightClick() {
                 if(Math.hypot(pos.x - sp.x, pos.z - sp.z) < 14) continue;
 
                 if(Math.random() > 0.85) {
-                    // Standard PointLight. No shapes, just pure, clean illumination.
+                    const lightGroup = new THREE.Group();
+                    lightGroup.position.set(pos.x, 13.9, pos.z);
+
+                    // A. THE HOUSING (Your original boxes)
+                    const mainBody = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.15, 0.6), fixtureMat);
+                    lightGroup.add(mainBody);
+                    const bezelTop = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.04, 0.7), fixtureMat);
+                    bezelTop.position.y = 0.08;
+                    lightGroup.add(bezelTop);
+
+                    // B. THE HARDWARE (Your original screws)
+                    const screwGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.02, 6);
+                    const screwMat = new THREE.MeshStandardMaterial({color: 0x111111});
+                    [[1.1, 0.22], [1.1, -0.22], [-1.1, 0.22], [-1.1, -0.22]].forEach(loc => {
+                        const s = new THREE.Mesh(screwGeo, screwMat);
+                        s.position.set(loc[0], -0.07, loc[1]);
+                        lightGroup.add(s);
+                    });
+
+                    // C. THE RADIATING ELEMENT (Your original glowing tube)
+                    const stripMat = new THREE.MeshStandardMaterial({
+                        color: 0x000000, emissive: 0xbbddff, emissiveIntensity: 2
+                    });
+                    const strip = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.05, 0.15), stripMat);
+                    strip.position.y = -0.09;
+                    lightGroup.add(strip);
+                    scene.add(lightGroup);
+
+                    // D. THE SIMPLE FUNCTIONING LIGHT
                     const light = new THREE.PointLight(0x88bbff, 60, 25, 2);
                     light.position.set(pos.x, 12.5, pos.z);
                     
@@ -567,22 +611,16 @@ function playFlashlightClick() {
                     light.castShadow = true;
                     light.shadow.mapSize.width = 512;
                     light.shadow.mapSize.height = 512;
-                    light.shadow.bias = -0.005; // Stops shadows from glitching on the walls
+                    light.shadow.bias = -0.005; 
 
                     scene.add(light);
 
-                    // Add a tiny glowing box so you can see where the light is coming from
-                    const bulb = new THREE.Mesh(
-                        new THREE.BoxGeometry(0.5, 0.5, 0.5), 
-                        new THREE.MeshBasicMaterial({color: 0xffffff})
-                    );
-                    bulb.position.set(pos.x, 13.5, pos.z);
-                    scene.add(bulb);
-
+                    // Push both the light AND the strip to the array
                     corridorLights.push({
                         light: light,
-                        bulb: bulb,
+                        strip: stripMat, 
                         base: 60,
+                        rate: 15,
                         seed: Math.random() * 100,
                         broken: Math.random() > 0.6
                     });
