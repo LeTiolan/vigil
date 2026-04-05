@@ -1083,7 +1083,7 @@ function playFlashlightClick() {
                 if(p.userData.life<=0){scene.remove(p);if(p.userData.type==='steam')p.userData.mat.dispose();particles.splice(i,1);}
             }
 
-// ---- ADVANCED CORRIDOR LIGHTS UPDATE (With Smooth Fading & Drift) ----
+// ---- SIMPLE LIGHT UPDATE (Keeping Fixture Visuals) ----
 corridorLights.forEach(cl => {
     const now = performance.now();
     let targetI = 1.0;
@@ -1098,25 +1098,15 @@ corridorLights.forEach(cl => {
         targetI = 0.9 + Math.sin(now * 0.005 + cl.seed) * 0.1; // Electrical hum
     }
 
-    // SMOOTHING: Transition cl.currentI toward targetI (0.25 is the speed)
+    // SMOOTHING: Transition cl.currentI toward targetI
     if (cl.currentI === undefined) cl.currentI = 0;
     cl.currentI += (targetI - cl.currentI) * 0.25; 
 
-    // 1. Update the Main SpotLight (The Floor Beam)
-    cl.light.intensity = cl.base * cl.currentI;
+    // 1. Update the Simple PointLight (The functioning room illumination)
+    if (cl.light) cl.light.intensity = cl.base * cl.currentI;
 
-    // 2. Update the Glow (The Wall/Ceiling Spill)
-    if (cl.glow) cl.glow.intensity = (cl.base * 0.3) * cl.currentI;
-
-    // 3. Update the Emissive Mesh (The Bulb itself)
-    cl.strip.emissiveIntensity = 2.5 * cl.currentI;
-
-    // 4. Update the Volumetric Beam (The Air/Dust)
-    if (cl.vol) {
-        const drift = Math.sin(now * 0.001 + cl.seed) * 0.01;
-        // Keep opacity low (0.03) to keep the "cone" looking soft and foggy
-        cl.vol.opacity = (0.03 + drift) * cl.currentI;
-    }
+    // 2. Update the Emissive Mesh (The actual ceiling fixture tube)
+    if (cl.strip) cl.strip.emissiveIntensity = 2.5 * cl.currentI;
 });
             // ---- TERMINAL BUTTON ANIMATION ----
             if(terminalBtnT>0){terminalBtnT-=delta;if(terminalBtnT<=0)termBtn.position.z=0.56;}
