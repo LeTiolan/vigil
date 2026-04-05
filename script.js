@@ -1121,40 +1121,40 @@ scene.add(cl.target);
                 if(p.userData.life<=0){scene.remove(p);if(p.userData.type==='steam')p.userData.mat.dispose();particles.splice(i,1);}
             }
 
-            // ---- ADVANCED CORRIDOR LIGHTS UPDATE ----
+  // ---- ADVANCED CORRIDOR LIGHTS UPDATE (With Spill & Volume) ----
 corridorLights.forEach(cl => {
     const now = performance.now();
     let intensityMult = 1.0;
 
     if (cl.broken) {
-        // High-frequency "stutter" math for broken lights
+        // Violent flickering math
         const t = now * 0.001 * cl.rate + cl.seed;
-        // Violent flickering: multi-layered sine waves for unpredictability
         const flicker = Math.sin(t * 7.8) * Math.sin(t * 3.3) * Math.sin(t * 15.0);
         intensityMult = flicker > 0.1 ? 1.0 : 0.02;
         
-        // Occasional "total cutout" for 3% of frames
+        // Random total cutout
         if (Math.random() > 0.97) intensityMult = 0;
     } else {
-        // Subtle electrical "hum" for functional lights (0.8 to 1.0 intensity)
+        // Subtle electrical hum
         intensityMult = 0.9 + Math.sin(now * 0.005 + cl.seed) * 0.1;
     }
 
-    // 1. Update the actual light hitting the floor/walls
+    // 1. Update the Main SpotLight (The Floor Beam)
     cl.light.intensity = cl.base * intensityMult;
 
-    // 2. Update the visual bulb strip (Emissive)
-    // We keep it slightly higher (2.5) so the bulb looks bright even when the light is dim
+    // 2. NEW: Update the Glow (The Wall/Ceiling Spill)
+    // We set this to 40% of the base so it stays atmospheric
+    if (cl.glow) cl.glow.intensity = (cl.base * 0.4) * intensityMult;
+
+    // 3. Update the Emissive Mesh (The Bulb itself)
     cl.strip.emissiveIntensity = 2.5 * intensityMult;
 
-    // 3. Update the Volumetric Beam (The "Air" cone)
+    // 4. Update the Volumetric Beam (The Air/Dust)
     if (cl.vol) {
-        // Subtle "dust drift" effect: opacity breathes slightly
         const drift = Math.sin(now * 0.001 + cl.seed) * 0.01;
         cl.vol.opacity = (0.05 + drift) * intensityMult;
     }
 });
-
             // ---- TERMINAL BUTTON ANIMATION ----
             if(terminalBtnT>0){terminalBtnT-=delta;if(terminalBtnT<=0)termBtn.position.z=0.56;}
             if(doorState==='ready_terminal'&&!terminalActivated)termLight.intensity=2.8+1.6*Math.sin(now*0.006);
