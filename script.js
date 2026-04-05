@@ -516,38 +516,106 @@ function playFlashlightClick() {
         for(let i=0;i<MAZE_SIZE;i++)for(let j=0;j<MAZE_SIZE;j++)if(maze[i][j]===1){const p=getPos(i,j);_dm.position.set(p.x,7,p.z);_dm.updateMatrix();iWallMesh.setMatrixAt(_wi++,_dm.matrix);}
         iWallMesh.instanceMatrix.needsUpdate=true;scene.add(iWallMesh);
 
-  // Atmosphere corridor lights - Better models and SpotLights
-        const corridorLights=[];
-        {const sp=getPos(1,1);let added=0;
-        for(const cell of emptyCells){if(added>=14)break;const pos=getPos(cell.x,cell.z);if(Math.hypot(pos.x-sp.x,pos.z-sp.z)<14)continue;
-            if(Math.random()>0.85){ // Increased spawn rate for more pools of light
-                
-                // 1. The metal fixture housing attached to the ceiling
-                const fixtureGeo = new THREE.BoxGeometry(2.5, 0.2, 0.6);
-                const fixtureMat = new THREE.MeshLambertMaterial({color: 0x222222});
-                const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
-                fixture.position.set(pos.x, 13.9, pos.z);
-                scene.add(fixture);
-
-                // 2. The glowing fluorescent bulb strip
-                const stripMat=new THREE.MeshBasicMaterial({color:0xddf0ff}); // Emissive bright white
-                const strip=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.1,0.2),stripMat);
-                strip.position.set(pos.x,13.85,pos.z);
-                scene.add(strip);
-
-                // 3. Cone-shaped SpotLight pointing strictly down at the floor
-                const cl=new THREE.SpotLight(0x88bbff, 0, 50, Math.PI / 5, 0.4, 1.5);
-                cl.position.set(pos.x,13.8,pos.z);
-                cl.target.position.set(pos.x,0,pos.z);
-                
-                // Extremely important: Add the target to the scene so it knows where to point!
-                scene.add(cl); 
-                scene.add(cl.target);
-                
-                corridorLights.push({light:cl,strip:stripMat,seed:Math.random()*100,base:3.0,rate:10,broken:Math.random()>0.7});
-                added++;
+// --- ADVANCED INDUSTRIAL LIGHTING SYSTEM ---
+        const corridorLights = [];
+        {
+            const sp = getPos(1, 1);
+            let added = 0;
+            
+            // 1. Procedural Scratched Texture (Local to this block)
+            const lightTexCanvas = document.createElement('canvas');
+            lightTexCanvas.width = lightTexCanvas.height = 64;
+            const ltCtx = lightTexCanvas.getContext('2d');
+            ltCtx.fillStyle = '#222'; ltCtx.fillRect(0,0,64,64);
+            for(let i=0; i<400; i++) {
+                ltCtx.fillStyle = `rgba(255,255,255,${Math.random()*0.05})`;
+                ltCtx.fillRect(Math.random()*64, Math.random()*64, 1, 10 * Math.random());
             }
-        }}
+            const lightTex = new THREE.CanvasTexture(lightTexCanvas);
+            lightTex.magFilter = THREE.NearestFilter; // Sharp pixels
+
+            const fixtureMat = new THREE.MeshStandardMaterial({
+                map: lightTex,
+                color: 0x444444,
+                roughness: 0.8,
+                metalness: 0.3
+            });
+
+            for(const cell of emptyCells) {
+                if(added >= 14) break;
+                const pos = getPos(cell.x, cell.z);
+                if(Math.hypot(pos.x - sp.x, pos.z - sp.z) < 14) continue;
+
+                if(Math.random() > 0.85) {
+                    const lightGroup = new THREE.Group();
+                    lightGroup.position.set(pos.x, 13.9, pos.z);
+
+                    // A. THE HOUSING (Bezels and main body)
+                    const mainBody = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.15, 0.6), fixtureMat);
+                    lightGroup.add(mainBody);
+
+                    const bezelTop = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.04, 0.7), fixtureMat);
+                    bezelTop.position.y = 0.08;
+                    lightGroup.add(bezelTop);
+
+                    // B. THE HARDWARE (4 Screws)
+                    const screwGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.02, 6);
+                    const screwMat = new THREE.MeshStandardMaterial({color: 0x111111});
+                    const sLocs = [[1.1, 0.22], [1.1, -0.22], [-1.1, 0.22], [-1.1, -0.22]];
+                    sLocs.forEach(loc => {
+                        const s = new THREE.Mesh(screwGeo, screwMat);
+                        s.position.set(loc[0], -0.07, loc[1]);
+                        lightGroup.add(s);
+                    });
+
+                    // C. THE RADIATING ELEMENT (Fluorescent strip)
+                    const stripMat = new THREE.MeshStandardMaterial({
+                        color: 0x000000, 
+                        emissive: 0xbbddff, 
+                        emissiveIntensity: 2
+                    });
+                    const strip = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.05, 0.15), stripMat);
+                    strip.position.y = -0.09;
+                    lightGroup.add(strip);
+                    scene.add(lightGroup);
+
+                    // D. THE SPOTLIGHT MATH
+                    const cl = new THREE.SpotLight(0x88bbff, 0, 50, Math.PI / 4, 0.5, 1.2);
+                    cl.position.set(pos.x, 13.7, pos.z);
+                    cl.target.position.set(pos.x, 0, pos.z);
+                    scene.add(cl);
+                    scene.add(cl.target);
+
+                    // E. THE VOLUMETRIC CONE (Physical beam in air)
+                    const coneHeight = 13.7;
+                    // Math: Radius at bottom = tan(angle) * height
+                    const coneRadius = Math.tan(cl.angle) * coneHeight;
+                    const volGeo = new THREE.CylinderGeometry(0.1, coneRadius, coneHeight, 32, 1, true);
+                    const volMat = new THREE.MeshBasicMaterial({
+                        color: 0x88bbff,
+                        transparent: true,
+                        opacity: 0.05,
+                        side: THREE.DoubleSide,
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending
+                    });
+                    const volume = new THREE.Mesh(volGeo, volMat);
+                    volume.position.set(pos.x, 13.7 - (coneHeight/2), pos.z);
+                    scene.add(volume);
+
+                    corridorLights.push({
+                        light: cl, 
+                        strip: stripMat, 
+                        vol: volMat, 
+                        seed: Math.random()*100, 
+                        base: 25.0, // Significant intensity for ground reach
+                        rate: 15, 
+                        broken: Math.random() > 0.6
+                    });
+                    added++;
+                }
+            }
+        }
 
         const startPos=getPos(1,1);
         camera.position.set(startPos.x,player.height,startPos.z);camera.rotation.set(0,yaw,0);
