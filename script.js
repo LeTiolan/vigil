@@ -520,28 +520,33 @@ function playFlashlightClick() {
         for(let i=0;i<MAZE_SIZE;i++)for(let j=0;j<MAZE_SIZE;j++)if(maze[i][j]===1){const p=getPos(i,j);_dm.position.set(p.x,7,p.z);_dm.updateMatrix();iWallMesh.setMatrixAt(_wi++,_dm.matrix);}
         iWallMesh.instanceMatrix.needsUpdate=true;scene.add(iWallMesh);
 
-       // Atmosphere corridor lights - Better models and SpotLights
+  // Atmosphere corridor lights - Better models and SpotLights
         const corridorLights=[];
         {const sp=getPos(1,1);let added=0;
         for(const cell of emptyCells){if(added>=14)break;const pos=getPos(cell.x,cell.z);if(Math.hypot(pos.x-sp.x,pos.z-sp.z)<14)continue;
-            if(Math.random()>0.85){ // Increased spawn rate
+            if(Math.random()>0.85){ // Increased spawn rate for more pools of light
+                
+                // 1. The metal fixture housing attached to the ceiling
                 const fixtureGeo = new THREE.BoxGeometry(2.5, 0.2, 0.6);
                 const fixtureMat = new THREE.MeshLambertMaterial({color: 0x222222});
                 const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
                 fixture.position.set(pos.x, 13.9, pos.z);
                 scene.add(fixture);
 
-                const stripMat=new THREE.MeshBasicMaterial({color:0xddf0ff}); // Bright white
+                // 2. The glowing fluorescent bulb strip
+                const stripMat=new THREE.MeshBasicMaterial({color:0xddf0ff}); // Emissive bright white
                 const strip=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.1,0.2),stripMat);
                 strip.position.set(pos.x,13.85,pos.z);
                 scene.add(strip);
 
-                // Cone SpotLight
+                // 3. Cone-shaped SpotLight pointing strictly down at the floor
                 const cl=new THREE.SpotLight(0x88bbff, 0, 50, Math.PI / 5, 0.4, 1.5);
                 cl.position.set(pos.x,13.8,pos.z);
                 cl.target.position.set(pos.x,0,pos.z);
-                cl.castShadow = true;
-                scene.add(cl); scene.add(cl.target);
+                
+                // Extremely important: Add the target to the scene so it knows where to point!
+                scene.add(cl); 
+                scene.add(cl.target);
                 
                 corridorLights.push({light:cl,strip:stripMat,seed:Math.random()*100,base:3.0,rate:10,broken:Math.random()>0.7});
                 added++;
