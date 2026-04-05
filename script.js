@@ -112,12 +112,15 @@
 
         let orbsCollected=0, gameActive=false, gameWon=false;
         let startTime=0, accumulatedTime=0, hasPlayedSting=false, prevTime=performance.now();
-        let yaw=Math.PI, pitch=0; const SENSITIVITY=0.002;
+  let yaw=Math.PI, pitch=0; const SENSITIVITY=0.002;
         let introShown=false, sprintAlertCD=0, lastFootCycle=0;
         let terminalActivated=false, terminalBtnT=0, currentlySprinting=false;
         const exploredCells=new Set();
+        
+        // --- BULLETPROOF KEYBOARD TRACKER ---
         const keys={};
-
+        window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
         const player={height:2.1,radius:0.8,walkSpeed:0.22,runSpeed:0.46,stamina:MAX_STAMINA,isExhausted:false,velocity:new THREE.Vector2(0,0),headBobTimer:0};
 
         document.getElementById('totalOrbsUI').innerText=TOTAL_ORBS;
