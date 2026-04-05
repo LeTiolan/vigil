@@ -163,14 +163,7 @@
         camera.add(flash1); camera.add(flash1.target); flash1.target.position.set(0,0,-1);
         camera.add(flash2); camera.add(flash2.target); flash2.target.position.set(0,0,-1);
 
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyF' && gameActive) {
-                flashlightOn = !flashlightOn;
-                flash1.intensity = flashlightOn ? 150 : 0;
-                flash2.intensity = flashlightOn ? 30 : 0;
-                playFlashlightClick(); 
-            }
-        });
+     
         
         // Add the camera (and its attached lights) to the scene
         scene.add(camera);
