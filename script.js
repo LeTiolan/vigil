@@ -1113,11 +1113,39 @@ function playFlashlightClick() {
                 if(p.userData.life<=0){scene.remove(p);if(p.userData.type==='steam')p.userData.mat.dispose();particles.splice(i,1);}
             }
 
-            // ---- CORRIDOR LIGHTS ----
-            corridorLights.forEach(cl=>{
-                if(cl.broken){const t=now*0.001*cl.rate+cl.seed;const f=Math.abs(Math.sin(t*7.8)*Math.sin(t*3.3));cl.light.intensity=Math.random()>0.03?cl.base*f:0;}
-                else cl.light.intensity=cl.base*(0.7+0.3*Math.sin(now*0.001*cl.rate+cl.seed));
-            });
+            // ---- ADVANCED CORRIDOR LIGHTS UPDATE ----
+corridorLights.forEach(cl => {
+    const now = performance.now();
+    let intensityMult = 1.0;
+
+    if (cl.broken) {
+        // High-frequency "stutter" math for broken lights
+        const t = now * 0.001 * cl.rate + cl.seed;
+        // Violent flickering: multi-layered sine waves for unpredictability
+        const flicker = Math.sin(t * 7.8) * Math.sin(t * 3.3) * Math.sin(t * 15.0);
+        intensityMult = flicker > 0.1 ? 1.0 : 0.02;
+        
+        // Occasional "total cutout" for 3% of frames
+        if (Math.random() > 0.97) intensityMult = 0;
+    } else {
+        // Subtle electrical "hum" for functional lights (0.8 to 1.0 intensity)
+        intensityMult = 0.9 + Math.sin(now * 0.005 + cl.seed) * 0.1;
+    }
+
+    // 1. Update the actual light hitting the floor/walls
+    cl.light.intensity = cl.base * intensityMult;
+
+    // 2. Update the visual bulb strip (Emissive)
+    // We keep it slightly higher (2.5) so the bulb looks bright even when the light is dim
+    cl.strip.emissiveIntensity = 2.5 * intensityMult;
+
+    // 3. Update the Volumetric Beam (The "Air" cone)
+    if (cl.vol) {
+        // Subtle "dust drift" effect: opacity breathes slightly
+        const drift = Math.sin(now * 0.001 + cl.seed) * 0.01;
+        cl.vol.opacity = (0.05 + drift) * intensityMult;
+    }
+});
 
             // ---- TERMINAL BUTTON ANIMATION ----
             if(terminalBtnT>0){terminalBtnT-=delta;if(terminalBtnT<=0)termBtn.position.z=0.56;}
