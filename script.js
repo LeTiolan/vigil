@@ -1121,38 +1121,39 @@ scene.add(cl.target);
                 if(p.userData.life<=0){scene.remove(p);if(p.userData.type==='steam')p.userData.mat.dispose();particles.splice(i,1);}
             }
 
-  // ---- ADVANCED CORRIDOR LIGHTS UPDATE (With Spill & Volume) ----
+// ---- ADVANCED CORRIDOR LIGHTS UPDATE (With Smooth Fading & Drift) ----
 corridorLights.forEach(cl => {
     const now = performance.now();
-    let intensityMult = 1.0;
+    let targetI = 1.0;
 
+    // Determine what the brightness SHOULD be
     if (cl.broken) {
-        // Violent flickering math
         const t = now * 0.001 * cl.rate + cl.seed;
-        const flicker = Math.sin(t * 7.8) * Math.sin(t * 3.3) * Math.sin(t * 15.0);
-        intensityMult = flicker > 0.1 ? 1.0 : 0.02;
-        
-        // Random total cutout
-        if (Math.random() > 0.97) intensityMult = 0;
+        const noise = Math.sin(t * 7.8) * Math.sin(t * 3.3) * Math.sin(t * 15.0);
+        targetI = noise > 0.1 ? 1.0 : 0.05;
+        if (Math.random() > 0.98) targetI = 0; // Total cutout
     } else {
-        // Subtle electrical hum
-        intensityMult = 0.9 + Math.sin(now * 0.005 + cl.seed) * 0.1;
+        targetI = 0.9 + Math.sin(now * 0.005 + cl.seed) * 0.1; // Electrical hum
     }
 
-    // 1. Update the Main SpotLight (The Floor Beam)
-    cl.light.intensity = cl.base * intensityMult;
+    // SMOOTHING: Transition cl.currentI toward targetI (0.25 is the speed)
+    if (cl.currentI === undefined) cl.currentI = 0;
+    cl.currentI += (targetI - cl.currentI) * 0.25; 
 
-    // 2. NEW: Update the Glow (The Wall/Ceiling Spill)
-    // We set this to 40% of the base so it stays atmospheric
-    if (cl.glow) cl.glow.intensity = (cl.base * 0.4) * intensityMult;
+    // 1. Update the Main SpotLight (The Floor Beam)
+    cl.light.intensity = cl.base * cl.currentI;
+
+    // 2. Update the Glow (The Wall/Ceiling Spill)
+    if (cl.glow) cl.glow.intensity = (cl.base * 0.3) * cl.currentI;
 
     // 3. Update the Emissive Mesh (The Bulb itself)
-    cl.strip.emissiveIntensity = 2.5 * intensityMult;
+    cl.strip.emissiveIntensity = 2.5 * cl.currentI;
 
     // 4. Update the Volumetric Beam (The Air/Dust)
     if (cl.vol) {
         const drift = Math.sin(now * 0.001 + cl.seed) * 0.01;
-        cl.vol.opacity = (0.05 + drift) * intensityMult;
+        // Keep opacity low (0.03) to keep the "cone" looking soft and foggy
+        cl.vol.opacity = (0.03 + drift) * cl.currentI;
     }
 });
             // ---- TERMINAL BUTTON ANIMATION ----
