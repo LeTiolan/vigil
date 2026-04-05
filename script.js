@@ -547,30 +547,11 @@ function playFlashlightClick() {
         iWallMesh.instanceMatrix.needsUpdate = true;
         scene.add(iWallMesh);
 
-// --- ADVANCED INDUSTRIAL LIGHTING SYSTEM ---
+// --- SIMPLE FUNCTIONING LIGHTS ---
         const corridorLights = [];
         {
             const sp = getPos(1, 1);
             let added = 0;
-            
-            // 1. Procedural Scratched Texture
-            const lightTexCanvas = document.createElement('canvas');
-            lightTexCanvas.width = lightTexCanvas.height = 64;
-            const ltCtx = lightTexCanvas.getContext('2d');
-            ltCtx.fillStyle = '#222'; ltCtx.fillRect(0,0,64,64);
-            for(let i=0; i<400; i++) {
-                ltCtx.fillStyle = `rgba(255,255,255,${Math.random()*0.05})`;
-                ltCtx.fillRect(Math.random()*64, Math.random()*64, 1, 10 * Math.random());
-            }
-            const lightTex = new THREE.CanvasTexture(lightTexCanvas);
-            lightTex.magFilter = THREE.NearestFilter;
-
-            const fixtureMat = new THREE.MeshStandardMaterial({
-                map: lightTex,
-                color: 0x444444,
-                roughness: 0.8,
-                metalness: 0.3
-            });
 
             for(const cell of emptyCells) {
                 if(added >= 14) break;
@@ -578,89 +559,37 @@ function playFlashlightClick() {
                 if(Math.hypot(pos.x - sp.x, pos.z - sp.z) < 14) continue;
 
                 if(Math.random() > 0.85) {
-                    const lightGroup = new THREE.Group();
-                    lightGroup.position.set(pos.x, 13.9, pos.z);
-
-                    // A. THE HOUSING
-                    const mainBody = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.15, 0.6), fixtureMat);
-                    lightGroup.add(mainBody);
-                    const bezelTop = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.04, 0.7), fixtureMat);
-                    bezelTop.position.y = 0.08;
-                    lightGroup.add(bezelTop);
-
-                    // B. THE HARDWARE
-                    const screwGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.02, 6);
-                    const screwMat = new THREE.MeshStandardMaterial({color: 0x111111});
-                    [[1.1, 0.22], [1.1, -0.22], [-1.1, 0.22], [-1.1, -0.22]].forEach(loc => {
-                        const s = new THREE.Mesh(screwGeo, screwMat);
-                        s.position.set(loc[0], -0.07, loc[1]);
-                        lightGroup.add(s);
-                    });
-
-                    // C. THE RADIATING ELEMENT
-                    const stripMat = new THREE.MeshStandardMaterial({
-                        color: 0x000000, emissive: 0xbbddff, emissiveIntensity: 2
-                    });
-                    const strip = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.05, 0.15), stripMat);
-                    strip.position.y = -0.09;
-                    lightGroup.add(strip);
-                    scene.add(lightGroup);
-
-                    // D. THE SPOTLIGHT MATH (Shadows enabled, Penumbra at 1.0)
-                    const cl = new THREE.SpotLight(0x88bbff, 0, 60, Math.PI / 2.5, 1.0, 2);
-                    cl.position.set(pos.x, 13.7, pos.z);
-                    cl.target.position.set(pos.x, 0, pos.z);
+                    // Standard PointLight. No shapes, just pure, clean illumination.
+                    const light = new THREE.PointLight(0x88bbff, 60, 25, 2);
+                    light.position.set(pos.x, 12.5, pos.z);
                     
-                    // Shadow Settings
-                    cl.castShadow = true; 
-                    cl.shadow.mapSize.width = 512;
-                    cl.shadow.mapSize.height = 512;
-                    cl.shadow.camera.near = 0.5;
-                    cl.shadow.camera.far = 50;
-                    cl.shadow.bias = -0.0001; 
+                    // Basic shadow setup that won't leak or draw lines
+                    light.castShadow = true;
+                    light.shadow.mapSize.width = 512;
+                    light.shadow.mapSize.height = 512;
+                    light.shadow.bias = -0.005; // Stops shadows from glitching on the walls
 
-                    scene.add(cl);
-                    scene.add(cl.target);
+                    scene.add(light);
 
-                    // E. THE GLOW (Wall/Ceiling Spill)
-                    const bulbGlow = new THREE.PointLight(0x88bbff, 0, 10, 2);
-                    bulbGlow.position.set(pos.x, 13.5, pos.z);
-                    scene.add(bulbGlow);
-
-                    // F. THE VOLUMETRIC CONE (Physical beam in air)
-                    const coneHeight = 13.7;
-                    const coneRadius = Math.tan(cl.angle) * coneHeight;
-                    const volMat = new THREE.MeshBasicMaterial({
-                        color: 0x88bbff,
-                        transparent: true,
-                        opacity: 0.03, // Lowered for smoothness
-                        side: THREE.DoubleSide,
-                        depthWrite: false,
-                        blending: THREE.AdditiveBlending
-                    });
-                    const volume = new THREE.Mesh(new THREE.CylinderGeometry(0.1, coneRadius, coneHeight, 32, 1, true), volMat);
-                    volume.position.set(pos.x, 13.7 - (coneHeight/2), pos.z);
-                    scene.add(volume);
+                    // Add a tiny glowing box so you can see where the light is coming from
+                    const bulb = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.5, 0.5, 0.5), 
+                        new THREE.MeshBasicMaterial({color: 0xffffff})
+                    );
+                    bulb.position.set(pos.x, 13.5, pos.z);
+                    scene.add(bulb);
 
                     corridorLights.push({
-                        light: cl, 
-                        glow: bulbGlow, 
-                        strip: stripMat, 
-                        vol: volMat, 
-                        seed: Math.random() * 100, 
-                        base: 45.0, 
-                        rate: 15, 
-                        broken: Math.random() > 0.6,
-                        currentI: 0 // Required for the smoothing update loop
+                        light: light,
+                        bulb: bulb,
+                        base: 60,
+                        seed: Math.random() * 100,
+                        broken: Math.random() > 0.6
                     });
                     added++;
                 }
             }
         }
-
-        const startPos=getPos(1,1);
-        camera.position.set(startPos.x,player.height,startPos.z);camera.rotation.set(0,yaw,0);
-
         // ================================================================
         //  TITAN DOOR — fully rebuilt, purpose-built, no overlapping parts
         // ================================================================
