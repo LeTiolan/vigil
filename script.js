@@ -168,7 +168,7 @@
                 flashlightOn = !flashlightOn;
                 flash1.intensity = flashlightOn ? 150 : 0;
                 flash2.intensity = flashlightOn ? 30 : 0;
-                playTerminalClick(); 
+                playFlashlightClick(); 
             }
         });
         
