@@ -444,26 +444,28 @@ function playFlashlightClick() {
             orbCtx.putImageData(id,0,0);orbTex.needsUpdate=true;
         }
 
-        // ================================================================
+// ================================================================
         //  MATERIALS
         // ================================================================
         const wallTex=mkWallTex(),floorTex=mkFloorTex(),ceilTex=mkCeilTex(),doorTex=mkDoorTex();
-        const matWall=new THREE.MeshLambertMaterial({map:wallTex});
-        const matFloor=new THREE.MeshLambertMaterial({map:floorTex});
-        const matCeil=new THREE.MeshLambertMaterial({map:ceilTex});
-        const matDoor=new THREE.MeshLambertMaterial({map:doorTex});
-        const matDarkMetal=new THREE.MeshLambertMaterial({map:mkGrimeTex()});
-        const matRusty=new THREE.MeshLambertMaterial({color:0x2a1f10});
-        const matSteel=new THREE.MeshLambertMaterial({color:0x4a4a4a});
-        const matChrome=new THREE.MeshLambertMaterial({color:0x666666});
-        const matHazard=new THREE.MeshLambertMaterial({map:mkHazardTex()});
-        const matWarnYellow=new THREE.MeshLambertMaterial({color:0xaa8800});
-        const matBlackHole=new THREE.MeshLambertMaterial({color:0x020202});
+        const matWall=new THREE.MeshStandardMaterial({map:wallTex, roughness: 0.9});
+        const matFloor=new THREE.MeshStandardMaterial({map:floorTex, roughness: 0.8});
+        const matCeil=new THREE.MeshStandardMaterial({map:ceilTex, roughness: 0.9});
+        const matDoor=new THREE.MeshStandardMaterial({map:doorTex, roughness: 0.6});
+        const matDarkMetal=new THREE.MeshStandardMaterial({map:mkGrimeTex(), roughness: 0.8});
+        const matRusty=new THREE.MeshStandardMaterial({color:0x2a1f10, roughness: 0.9});
+        const matSteel=new THREE.MeshStandardMaterial({color:0x4a4a4a, roughness: 0.5});
+        const matChrome=new THREE.MeshStandardMaterial({color:0x666666, roughness: 0.2});
+        const matHazard=new THREE.MeshStandardMaterial({map:mkHazardTex(), roughness: 0.8});
+        const matWarnYellow=new THREE.MeshStandardMaterial({color:0xaa8800, roughness: 0.8});
+        const matBlackHole=new THREE.MeshStandardMaterial({color:0x020202, roughness: 1.0});
+        
+        // These stay Basic because they emit their own light/color
         const matGlassRed=new THREE.MeshBasicMaterial({color:0xdd0000,transparent:true,opacity:0.85});
         const matIndicator=new THREE.MeshBasicMaterial({color:0xff0000});
-        const matHydCyl=new THREE.MeshLambertMaterial({color:0x1a1a1a});
-        const matHydRod=new THREE.MeshLambertMaterial({color:0x888888});
-
+        
+        const matHydCyl=new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness: 0.7});
+        const matHydRod=new THREE.MeshStandardMaterial({color:0x888888, roughness: 0.4});
         // ================================================================
         //  PARTICLES
         // ================================================================
