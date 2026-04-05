@@ -510,15 +510,40 @@ function playFlashlightClick() {
         const ceilMesh=new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE,MAZE_SIZE*TILE_SIZE),matCeil);
         ceilMesh.rotation.x=Math.PI/2;ceilMesh.position.y=14;scene.add(ceilMesh);
 
-        // Walls — InstancedMesh (1 draw call for all walls)
-        let wallCount=0;
-        for(let i=0;i<MAZE_SIZE;i++)for(let j=0;j<MAZE_SIZE;j++)if(maze[i][j]===1)wallCount++;
-        const iWallGeo=new THREE.BoxGeometry(TILE_SIZE,14,TILE_SIZE);
-        const iWallMesh=new THREE.InstancedMesh(iWallGeo,matWall,wallCount);
-        iWallMesh.castShadow=true;iWallMesh.receiveShadow=true;
-        const _dm=new THREE.Object3D();let _wi=0;
-        for(let i=0;i<MAZE_SIZE;i++)for(let j=0;j<MAZE_SIZE;j++)if(maze[i][j]===1){const p=getPos(i,j);_dm.position.set(p.x,7,p.z);_dm.updateMatrix();iWallMesh.setMatrixAt(_wi++,_dm.matrix);}
-        iWallMesh.instanceMatrix.needsUpdate=true;scene.add(iWallMesh);
+       // Walls — InstancedMesh (1 draw call for all walls)
+        let wallCount = 0;
+        for (let i = 0; i < MAZE_SIZE; i++) {
+            for (let j = 0; j < MAZE_SIZE; j++) {
+                if (maze[i][j] === 1) wallCount++;
+            }
+        }
+
+        const iWallGeo = new THREE.BoxGeometry(TILE_SIZE, 14, TILE_SIZE);
+        
+        // Fix for "leaking" light at the edges: ensures backfaces block light too
+        matWall.shadowSide = THREE.DoubleSide; 
+
+        const iWallMesh = new THREE.InstancedMesh(iWallGeo, matWall, wallCount);
+        
+        // CRITICAL: These tell the walls to actually stop the light beams
+        iWallMesh.castShadow = true;
+        iWallMesh.receiveShadow = true;
+
+        const _dm = new THREE.Object3D();
+        let _wi = 0;
+        for (let i = 0; i < MAZE_SIZE; i++) {
+            for (let j = 0; j < MAZE_SIZE; j++) {
+                if (maze[i][j] === 1) {
+                    const p = getPos(i, j);
+                    _dm.position.set(p.x, 7, p.z);
+                    _dm.updateMatrix();
+                    iWallMesh.setMatrixAt(_wi++, _dm.matrix);
+                }
+            }
+        }
+
+        iWallMesh.instanceMatrix.needsUpdate = true;
+        scene.add(iWallMesh);
 
 // --- ADVANCED INDUSTRIAL LIGHTING SYSTEM ---
         const corridorLights = [];
