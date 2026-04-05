@@ -551,7 +551,7 @@ function playFlashlightClick() {
             const sp = getPos(1, 1);
             let added = 0;
             
-            // 1. Procedural Scratched Texture (Local to this block)
+            // 1. Procedural Scratched Texture
             const lightTexCanvas = document.createElement('canvas');
             lightTexCanvas.width = lightTexCanvas.height = 64;
             const ltCtx = lightTexCanvas.getContext('2d');
@@ -561,7 +561,7 @@ function playFlashlightClick() {
                 ltCtx.fillRect(Math.random()*64, Math.random()*64, 1, 10 * Math.random());
             }
             const lightTex = new THREE.CanvasTexture(lightTexCanvas);
-            lightTex.magFilter = THREE.NearestFilter; // Sharp pixels
+            lightTex.magFilter = THREE.NearestFilter;
 
             const fixtureMat = new THREE.MeshStandardMaterial({
                 map: lightTex,
@@ -579,75 +579,77 @@ function playFlashlightClick() {
                     const lightGroup = new THREE.Group();
                     lightGroup.position.set(pos.x, 13.9, pos.z);
 
-                    // A. THE HOUSING (Bezels and main body)
+                    // A. THE HOUSING
                     const mainBody = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.15, 0.6), fixtureMat);
                     lightGroup.add(mainBody);
-
                     const bezelTop = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.04, 0.7), fixtureMat);
                     bezelTop.position.y = 0.08;
                     lightGroup.add(bezelTop);
 
-                    // B. THE HARDWARE (4 Screws)
+                    // B. THE HARDWARE
                     const screwGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.02, 6);
                     const screwMat = new THREE.MeshStandardMaterial({color: 0x111111});
-                    const sLocs = [[1.1, 0.22], [1.1, -0.22], [-1.1, 0.22], [-1.1, -0.22]];
-                    sLocs.forEach(loc => {
+                    [[1.1, 0.22], [1.1, -0.22], [-1.1, 0.22], [-1.1, -0.22]].forEach(loc => {
                         const s = new THREE.Mesh(screwGeo, screwMat);
                         s.position.set(loc[0], -0.07, loc[1]);
                         lightGroup.add(s);
                     });
 
-                    // C. THE RADIATING ELEMENT (Fluorescent strip)
+                    // C. THE RADIATING ELEMENT
                     const stripMat = new THREE.MeshStandardMaterial({
-                        color: 0x000000, 
-                        emissive: 0xbbddff, 
-                        emissiveIntensity: 2
+                        color: 0x000000, emissive: 0xbbddff, emissiveIntensity: 2
                     });
                     const strip = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.05, 0.15), stripMat);
                     strip.position.y = -0.09;
                     lightGroup.add(strip);
                     scene.add(lightGroup);
 
-             // D. THE SPOTLIGHT MATH (Wide Spill Version)
-// We use a wider angle (PI/2.5) and max penumbra (1.0) for that "glow" look
-const cl = new THREE.SpotLight(0x88bbff, 0, 60, Math.PI / 2.5, 1.0, 2);
-cl.position.set(pos.x, 13.7, pos.z);
-cl.target.position.set(pos.x, 0, pos.z);
+                    // D. THE SPOTLIGHT MATH (Shadows enabled, Penumbra at 1.0)
+                    const cl = new THREE.SpotLight(0x88bbff, 0, 60, Math.PI / 2.5, 1.0, 2);
+                    cl.position.set(pos.x, 13.7, pos.z);
+                    cl.target.position.set(pos.x, 0, pos.z);
+                    
+                    // Shadow Settings
+                    cl.castShadow = true; 
+                    cl.shadow.mapSize.width = 512;
+                    cl.shadow.mapSize.height = 512;
+                    cl.shadow.camera.near = 0.5;
+                    cl.shadow.camera.far = 50;
+                    cl.shadow.bias = -0.0001; 
 
-// Subtle PointLight at the bulb to illuminate the ceiling and nearby walls
-const bulbGlow = new THREE.PointLight(0x88bbff, 0, 15, 2);
-bulbGlow.position.set(pos.x, 13.5, pos.z);
-scene.add(bulbGlow);
+                    scene.add(cl);
+                    scene.add(cl.target);
 
-scene.add(cl);
-scene.add(cl.target);
+                    // E. THE GLOW (Wall/Ceiling Spill)
+                    const bulbGlow = new THREE.PointLight(0x88bbff, 0, 10, 2);
+                    bulbGlow.position.set(pos.x, 13.5, pos.z);
+                    scene.add(bulbGlow);
 
-                    // E. THE VOLUMETRIC CONE (Physical beam in air)
+                    // F. THE VOLUMETRIC CONE (Physical beam in air)
                     const coneHeight = 13.7;
-                    // Math: Radius at bottom = tan(angle) * height
                     const coneRadius = Math.tan(cl.angle) * coneHeight;
-                    const volGeo = new THREE.CylinderGeometry(0.1, coneRadius, coneHeight, 32, 1, true);
                     const volMat = new THREE.MeshBasicMaterial({
                         color: 0x88bbff,
                         transparent: true,
-                        opacity: 0.05,
+                        opacity: 0.03, // Lowered for smoothness
                         side: THREE.DoubleSide,
                         depthWrite: false,
                         blending: THREE.AdditiveBlending
                     });
-                    const volume = new THREE.Mesh(volGeo, volMat);
+                    const volume = new THREE.Mesh(new THREE.CylinderGeometry(0.1, coneRadius, coneHeight, 32, 1, true), volMat);
                     volume.position.set(pos.x, 13.7 - (coneHeight/2), pos.z);
                     scene.add(volume);
 
-                  corridorLights.push({
-                        light: cl,        // The main SpotLight (Floor)
-                        glow: bulbGlow,   // The secondary PointLight (Wall/Ceiling spill)
-                        strip: stripMat,  // The emissive bulb mesh
-                        vol: volMat,      // The volumetric cone material
+                    corridorLights.push({
+                        light: cl, 
+                        glow: bulbGlow, 
+                        strip: stripMat, 
+                        vol: volMat, 
                         seed: Math.random() * 100, 
-                        base: 40.0,       // Higher base for better spill reach
+                        base: 45.0, 
                         rate: 15, 
-                        broken: Math.random() > 0.6
+                        broken: Math.random() > 0.6,
+                        currentI: 0 // Required for the smoothing update loop
                     });
                     added++;
                 }
