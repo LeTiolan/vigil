@@ -146,12 +146,16 @@
         const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,280);
         camera.rotation.order='YXZ';
 
-        const renderer=new THREE.WebGLRenderer({antialias:false});
-        renderer.setPixelRatio(Math.min(devicePixelRatio,1)*0.6);
-        renderer.setSize(innerWidth,innerHeight);
-        renderer.shadowMap.enabled=true;
-        renderer.shadowMap.type=THREE.BasicShadowMap;
-        document.body.appendChild(renderer.domElement);
+       const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1) * 0.6);
+renderer.setSize(innerWidth, innerHeight);
+
+// Enable Shadows
+renderer.shadowMap.enabled = true;
+// CHANGE THIS LINE for the smooth look:
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+
+document.body.appendChild(renderer.domElement);
 // Bodycam flashlight — Bigger, detailed, and toggleable
         let flashlightOn = true;
         const flash1=new THREE.SpotLight(0xfffdd8,150,80,Math.PI/4,0.1,1.8); 
