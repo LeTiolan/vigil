@@ -999,7 +999,7 @@ function playFlashlightClick() {
                     window.fKeyWasPressed = false;
                 }
 
-                if(isSSprint){player.stamina-=0.4;if(player.stamina<=0)player.isExhausted=true;}
+                if(isSprinting){player.stamina-=0.4;if(player.stamina<=0)player.isExhausted=true;}
                 else{player.stamina=Math.min(MAX_STAMINA,player.stamina+0.9);if(player.stamina>=MAX_STAMINA*0.25)player.isExhausted=false;}
                 const stPct=(player.stamina/MAX_STAMINA)*100;
                 elStBar.style.height=stPct+'%';
