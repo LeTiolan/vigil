@@ -980,8 +980,7 @@ function playFlashlightClick() {
 
             // Track explored cells
             const pg=worldToGrid(camera.position.x,camera.position.z);exploredCells.add(`${pg.x},${pg.z}`);
-
-            // ---- MOVEMENT ----
+// ---- MOVEMENT ----
             if(!gameWon){
                 const inp=new THREE.Vector2(0,0);
                 if(keys['KeyW'])inp.y-=1;if(keys['KeyS'])inp.y+=1;if(keys['KeyA'])inp.x-=1;if(keys['KeyD'])inp.x+=1;
@@ -989,16 +988,29 @@ function playFlashlightClick() {
                 const moving=inp.length()>0,isSprinting=keys['ShiftLeft']&&moving&&!player.isExhausted;
                 currentlySprinting=isSprinting;
 
-                if(isSprinting){player.stamina-=0.4;if(player.stamina<=0)player.isExhausted=true;}
+                // --- NEW: Bulletproof F Key Toggle ---
+                if(keys['KeyF'] && !window.fKeyWasPressed) {
+                    flashlightOn = !flashlightOn;
+                    flash1.visible = flashlightOn;
+                    flash2.visible = flashlightOn;
+                    if(typeof playFlashlightClick === 'function') playFlashlightClick();
+                    window.fKeyWasPressed = true;
+                } else if (!keys['KeyF']) {
+                    window.fKeyWasPressed = false;
+                }
+
+                if(isSSprint){player.stamina-=0.4;if(player.stamina<=0)player.isExhausted=true;}
                 else{player.stamina=Math.min(MAX_STAMINA,player.stamina+0.9);if(player.stamina>=MAX_STAMINA*0.25)player.isExhausted=false;}
                 const stPct=(player.stamina/MAX_STAMINA)*100;
                 elStBar.style.height=stPct+'%';
                 elStBar.style.background=player.isExhausted?'#8b0000':'linear-gradient(to top, #5a4200, #d4af37, #ffe060)';
                 elStCont.classList.toggle('exhausted',player.isExhausted);
 
-                // Flashlight both beams flicker on low stamina
-                if(stPct<28){const fl=0.65+0.35*Math.abs(Math.sin(now*0.03+Math.sin(now*0.009)*4));flash1.intensity=90*fl;flash2.intensity=18*fl;}
-                else{flash1.intensity=90;flash2.intensity=18;}
+                // --- FIXED: Flashlight flicker now respects the toggle state ---
+                if(flashlightOn) {
+                    if(stPct<28){const fl=0.65+0.35*Math.abs(Math.sin(now*0.03+Math.sin(now*0.009)*4));flash1.intensity=90*fl;flash2.intensity=18*fl;}
+                    else{flash1.intensity=90;flash2.intensity=18;}
+                }
 
                 // FOV sprint tunnel
                 const tFOV=isSprinting?86:75;camera.fov+=(tFOV-camera.fov)*0.09;camera.updateProjectionMatrix();
@@ -1022,7 +1034,6 @@ function playFlashlightClick() {
                     if(isSprinting){sprintAlertCD-=delta;if(sprintAlertCD<=0){sprintAlertCD=0.65;alertAllInRadius(camera.position.x,camera.position.z,22);}}
                 } else {camera.position.y+=(player.height-camera.position.y)*0.1;player.headBobTimer+=delta;}
             }
-
             // ---- PARTICLES ----
             for(let i=particles.length-1;i>=0;i--){
                 const p=particles[i];p.position.addScaledVector(p.userData.vel,delta);p.userData.life-=delta;
