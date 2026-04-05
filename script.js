@@ -26,64 +26,73 @@
         //  PATHFINDING — parent-map BFS, O(n) memory
         // ================================================================
         function worldToGrid(wx,wz){const o=Math.floor(MAZE_SIZE/2);return{x:Math.max(0,Math.min(MAZE_SIZE-1,Math.round(wx/TILE_SIZE)+o)),z:Math.max(0,Math.min(MAZE_SIZE-1,Math.round(wz/TILE_SIZE)+o))};}
-       function heuristic(x1, z1, x2, z2) {
-            return Math.abs(x1 - x2) + Math.abs(z1 - z2);
-        }
-
-        function aStarPath(sx, sz, gx, gz) { // Replaced BFS with A*
+      function bfsPath(sx, sz, gx, gz) {
             if(sx === gx && sz === gz) return [];
             
-            const openSet = [{x: sx, z: sz, g: 0, f: heuristic(sx, sz, gx, gz)}];
-            const cameFrom = new Map();
-            const gScore = new Map();
-            gScore.set(`${sx},${sz}`, 0);
-
-         let it = 0;
-            while(openSet.length > 0 && it++ < 2500) {
-                // OPTIMIZATION: Linear search instead of array sorting prevents the game-breaking lag spike
-                let lowestIdx = 0;
-                for(let i = 1; i < openSet.length; i++) {
-                    if(openSet[i].f < openSet[lowestIdx].f) {
-                        lowestIdx = i;
-                    }
-                }
-                const current = openSet[lowestIdx];
-                openSet.splice(lowestIdx, 1); // Remove the selected node from the open set
-
-                if(current.x === gx && current.z === gz) {
+            // OPTIMIZATION: Flat typed arrays are blisteringly fast and O(1) complexity.
+            // This prevents the JS engine from choking or creating circular reference loops.
+            const visited = new Uint8Array(MAZE_SIZE * MAZE_SIZE);
+            const parent = new Int16Array(MAZE_SIZE * MAZE_SIZE);
+            parent.fill(-1);
+            
+            const startIdx = sx + sz * MAZE_SIZE;
+            const targetIdx = gx + gz * MAZE_SIZE;
+            
+            const q = [startIdx];
+            visited[startIdx] = 1;
+            
+            let head = 0;
+            let it = 0;
+            
+            // Loop limit protects against unexpected grid lockups
+            while(head < q.length && it++ < 3000) {
+                const curr = q[head++]; 
+                const cx = curr % MAZE_SIZE;
+                const cz = Math.floor(curr / MAZE_SIZE);
+                
+                // If we reached the target, trace back safely
+                if(curr === targetIdx) {
                     const path = [];
-                    let currKey = `${current.x},${current.z}`;
-                    while(cameFrom.has(currKey)) {
-                        const [px, pz] = currKey.split(',').map(Number);
-                        path.unshift({x: px, z: pz});
-                        currKey = cameFrom.get(currKey);
+                    let p = curr;
+                    let failsafe = 0; // Absolute protection against infinite while-loops
+                    
+                    while(p !== -1 && parent[p] !== -1 && failsafe++ < 1000) {
+                        path.unshift({x: p % MAZE_SIZE, z: Math.floor(p / MAZE_SIZE)});
+                        p = parent[p];
                     }
+                    // Remove the very first node so they don't stutter in place
                     if(path.length) path.shift();
                     return path;
                 }
-
-                const neighbors = [[0,-1],[0,1],[-1,0],[1,0]];
-                for(const [dx, dz] of neighbors) {
-                    const nx = current.x + dx, nz = current.z + dz;
-                    if(nx < 0 || nx >= MAZE_SIZE || nz < 0 || nz >= MAZE_SIZE || maze[nx][nz] === 1) continue;
-
-                    const tentative_g = gScore.get(`${current.x},${current.z}`) + 1;
-                    const nKey = `${nx},${nz}`;
-
-                    if(tentative_g < (gScore.get(nKey) || Infinity)) {
-                        cameFrom.set(nKey, `${current.x},${current.z}`);
-                        gScore.set(nKey, tentative_g);
-                        const f = tentative_g + heuristic(nx, nz, gx, gz);
-                        if(!openSet.some(n => n.x === nx && n.z === nz)) {
-                            openSet.push({x: nx, z: nz, g: tentative_g, f: f});
-                        }
+                
+                // Strictly 4-directional movement to prevent clipping corners and walls
+                const neighbors = [];
+                if (cz > 0) neighbors.push(curr - MAZE_SIZE); // Up
+                if (cz < MAZE_SIZE - 1) neighbors.push(curr + MAZE_SIZE); // Down
+                if (cx > 0) neighbors.push(curr - 1); // Left
+                if (cx < MAZE_SIZE - 1) neighbors.push(curr + 1); // Right
+                
+                for(let i = 0; i < neighbors.length; i++) {
+                    const n = neighbors[i];
+                    const nx = n % MAZE_SIZE;
+                    const nz = Math.floor(n / MAZE_SIZE);
+                    
+                    // Only traverse if it is an empty corridor (0) and hasn't been visited
+                    if(maze[nx][nz] === 0 && visited[n] === 0) {
+                        visited[n] = 1;
+                        parent[n] = curr;
+                        q.push(n);
                     }
                 }
             }
             return [];
         }
-        // Aliased to keep original function calls intact
-        function bfsPath(sx,sz,gx,gz){ return aStarPath(sx,sz,gx,gz); }
+
+        // Failsafe alias: If the AI code is still calling aStarPath anywhere, 
+        // it will harmlessly route it through the fixed, crash-proof BFS.
+        function aStarPath(sx, sz, gx, gz) { 
+            return bfsPath(sx, sz, gx, gz); 
+        }
         function hasLOS(ax,az,bx,bz){
             const g0=worldToGrid(ax,az),g1=worldToGrid(bx,bz),steps=Math.max(Math.abs(g1.x-g0.x),Math.abs(g1.z-g0.z));
             if(!steps)return true;
