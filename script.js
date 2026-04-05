@@ -610,12 +610,13 @@ scene.add(cl.target);
                     volume.position.set(pos.x, 13.7 - (coneHeight/2), pos.z);
                     scene.add(volume);
 
-                    corridorLights.push({
-                        light: cl, 
-                        strip: stripMat, 
-                        vol: volMat, 
-                        seed: Math.random()*100, 
-                        base: 25.0, // Significant intensity for ground reach
+                  corridorLights.push({
+                        light: cl,        // The main SpotLight (Floor)
+                        glow: bulbGlow,   // The secondary PointLight (Wall/Ceiling spill)
+                        strip: stripMat,  // The emissive bulb mesh
+                        vol: volMat,      // The volumetric cone material
+                        seed: Math.random() * 100, 
+                        base: 40.0,       // Higher base for better spill reach
                         rate: 15, 
                         broken: Math.random() > 0.6
                     });
