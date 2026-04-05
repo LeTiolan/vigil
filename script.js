@@ -579,12 +579,19 @@ function playFlashlightClick() {
                     lightGroup.add(strip);
                     scene.add(lightGroup);
 
-                    // D. THE SPOTLIGHT MATH
-                    const cl = new THREE.SpotLight(0x88bbff, 0, 50, Math.PI / 4, 0.5, 1.2);
-                    cl.position.set(pos.x, 13.7, pos.z);
-                    cl.target.position.set(pos.x, 0, pos.z);
-                    scene.add(cl);
-                    scene.add(cl.target);
+             // D. THE SPOTLIGHT MATH (Wide Spill Version)
+// We use a wider angle (PI/2.5) and max penumbra (1.0) for that "glow" look
+const cl = new THREE.SpotLight(0x88bbff, 0, 60, Math.PI / 2.5, 1.0, 2);
+cl.position.set(pos.x, 13.7, pos.z);
+cl.target.position.set(pos.x, 0, pos.z);
+
+// Subtle PointLight at the bulb to illuminate the ceiling and nearby walls
+const bulbGlow = new THREE.PointLight(0x88bbff, 0, 15, 2);
+bulbGlow.position.set(pos.x, 13.5, pos.z);
+scene.add(bulbGlow);
+
+scene.add(cl);
+scene.add(cl.target);
 
                     // E. THE VOLUMETRIC CONE (Physical beam in air)
                     const coneHeight = 13.7;
