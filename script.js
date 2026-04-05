@@ -263,6 +263,36 @@
             g.gain.setValueAtTime(0.12,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.5);
             o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+0.5);
         }
+function playFlashlightClick() {
+            if (!audioCtx) return;
+            const t = audioCtx.currentTime;
+
+            // Metallic 'snap'
+            const snapOsc = audioCtx.createOscillator();
+            const snapGain = audioCtx.createGain();
+            snapOsc.type = 'square';
+            snapOsc.frequency.setValueAtTime(1200, t);
+            snapOsc.frequency.exponentialRampToValueAtTime(100, t + 0.03);
+            snapGain.gain.setValueAtTime(0.3, t);
+            snapGain.gain.exponentialRampToValueAtTime(0.01, t + 0.03);
+            snapOsc.connect(snapGain);
+            snapGain.connect(audioCtx.destination);
+            snapOsc.start(t);
+            snapOsc.stop(t + 0.04);
+
+            // Hollow 'clack'
+            const clackOsc = audioCtx.createOscillator();
+            const clackGain = audioCtx.createGain();
+            clackOsc.type = 'triangle';
+            clackOsc.frequency.setValueAtTime(400, t);
+            clackOsc.frequency.exponentialRampToValueAtTime(50, t + 0.06);
+            clackGain.gain.setValueAtTime(0.5, t);
+            clackGain.gain.exponentialRampToValueAtTime(0.01, t + 0.06);
+            clackOsc.connect(clackGain);
+            clackGain.connect(audioCtx.destination);
+            clackOsc.start(t);
+            clackOsc.stop(t + 0.07);
+        }
 
         function playTerminalClick(){
             resume();
