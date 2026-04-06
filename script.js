@@ -1,10 +1,16 @@
 
         import * as THREE from 'three';
 
-        // ================================================================
+     // ================================================================
         //  MAZE GENERATION
         // ================================================================
         const MAZE_SIZE=25, TILE_SIZE=12;
+        
+        // --- ADD THESE TWO LINES HERE ---
+        let corridorLights = [];
+        let cullableMeshes = [];
+        // --------------------------------
+        
         const maze=Array(MAZE_SIZE).fill(null).map(()=>Array(MAZE_SIZE).fill(1));
         const emptyCells=[];
         function carveMaze(x,y){
