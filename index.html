@@ -101,5 +101,34 @@
         { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
     </script>
     <script type="module" src="script.js"></script>
+!-- ============================================================
+     PUZZLE OVERLAY — shared UI canvas for all 4 puzzle types
+     ============================================================ -->
+<div id="puzzle-overlay" style="
+    display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+    z-index:500; align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.88); backdrop-filter:blur(4px);">
+  <div id="puzzle-box" style="
+      position:relative; background:#0a0c08;
+      border:3px solid #2a3a2a; border-top:4px solid #4a8a4a;
+      box-shadow:0 0 40px rgba(0,200,100,0.15), inset 0 0 20px rgba(0,0,0,0.8);
+      padding:0; font-family:'Courier New',monospace; color:#90c090;">
+    <div id="puzzle-title" style="
+        padding:10px 20px; font-size:11px; letter-spacing:4px;
+        color:#60a060; border-bottom:1px solid #1a2a1a;
+        text-transform:uppercase; background:#060806;">
+      SYSTEM PANEL
+    </div>
+    <canvas id="puzzle-canvas" width="480" height="400"
+        style="display:block; image-rendering:pixelated; cursor:pointer;">
+    </canvas>
+    <div id="puzzle-status" style="
+        padding:8px 20px; font-size:10px; letter-spacing:3px;
+        color:#406040; border-top:1px solid #1a2a1a; background:#060806;
+        min-height:28px; text-transform:uppercase;">
+      AWAITING INPUT
+    </div>
+  </div>
+</div>
 </body>
 </html>
