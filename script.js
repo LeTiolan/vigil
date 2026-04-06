@@ -969,6 +969,125 @@ const startPos=getPos(1,1);
         mkPipeRun(-7.8,4,FH-2,FZ-0.2);mkPipeRun(7.8,4,FH-2,FZ-0.2);
 
         scene.add(doorGroup);
+// ================================================================
+        //  WALL PUZZLE PANELS — 3 physical panels, wall-anchored
+        //  Types: 'power' | 'fuse' | 'sequence'  (frequency = main terminal)
+        // ================================================================
+        const PUZZLE_TYPES = ['power', 'fuse', 'sequence'];
+
+        // Search for 3 distinct open cells adjacent to walls, spread across the maze.
+        // We search from 3 different seed positions for spread.
+        const panelSearchSeeds = [
+            {sx: Math.floor(MAZE_SIZE*0.25), sz: Math.floor(MAZE_SIZE*0.25)},
+            {sx: Math.floor(MAZE_SIZE*0.75), sz: Math.floor(MAZE_SIZE*0.25)},
+            {sx: Math.floor(MAZE_SIZE*0.5),  sz: Math.floor(MAZE_SIZE*0.5)},
+        ];
+        const usedPanelCells = new Set(); // prevent overlap with each other
+
+        function findWallCell(seedX, seedZ) {
+            for (let radius = 1; radius < 10; radius++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    for (let dz = -radius; dz <= radius; dz++) {
+                        const cx = seedX+dx, cz = seedZ+dz;
+                        if (cx<1||cx>=MAZE_SIZE-1||cz<1||cz>=MAZE_SIZE-1) continue;
+                        if (maze[cx][cz] !== 0) continue;
+                        const key = `${cx},${cz}`;
+                        if (usedPanelCells.has(key)) continue;
+                        // Must be far from exit terminal
+                        const termDist = Math.hypot(cx - exitGridX, cz - (exitGridZ-3));
+                        if (termDist < 5) continue;
+                        for (const [wx,wz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                            const nx=cx+wx, nz=cz+wz;
+                            if (nx>=0&&nx<MAZE_SIZE&&nz>=0&&nz<MAZE_SIZE&&maze[nx][nz]===1) {
+                                usedPanelCells.add(key);
+                                return {cx, cz, wx, wz};
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        function buildWallPanel(cx, cz, wx, wz, typeStr) {
+            const wp = getPos(cx, cz);
+            const pwx = wp.x + wx*(TILE_SIZE/2 - 0.3);
+            const pwz = wp.z + wz*(TILE_SIZE/2 - 0.3);
+            const angle = Math.atan2(-wx, -wz);
+
+            const grp = new THREE.Group();
+            grp.position.set(pwx, 0, pwz);
+            grp.rotation.y = angle;
+
+            // Mounting bracket
+            const brk = new THREE.Mesh(
+                new THREE.BoxGeometry(3.0, 5.0, 0.18),
+                new THREE.MeshLambertMaterial({color:0x1a1208})
+            );
+            brk.position.set(0, 2.4, -0.08); grp.add(brk);
+
+            // Bezel frame
+            const bez = new THREE.Mesh(
+                new THREE.BoxGeometry(2.7, 4.6, 0.12),
+                new THREE.MeshLambertMaterial({color:0x0c0c08})
+            );
+            bez.position.set(0, 2.4, 0.01); grp.add(bez);
+
+            // Screen canvas material (starts dark red)
+            const screenMat = new THREE.MeshBasicMaterial({color:0x100004});
+            const screen = new THREE.Mesh(
+                new THREE.BoxGeometry(2.2, 3.6, 0.04),
+                screenMat
+            );
+            screen.position.set(0, 2.7, 0.1); grp.add(screen);
+
+            // Emissive status strip (bottom of panel)
+            const stripMat = new THREE.MeshBasicMaterial({color:0x440008});
+            const strip = new THREE.Mesh(
+                new THREE.BoxGeometry(2.2, 0.18, 0.04),
+                stripMat
+            );
+            strip.position.set(0, 0.55, 0.1); grp.add(strip);
+
+            // Panel glow light (starts red, turns green on solve)
+            const pLight = new THREE.PointLight(0x550010, 1.2, 7);
+            pLight.position.set(0, 2.4, 1.0); grp.add(pLight);
+
+            // Bolt heads (decorative, 4 corners)
+            const boltMat = new THREE.MeshLambertMaterial({color:0x3a3020});
+            for (const [bx,by] of [[-1.2,0.4],[1.2,0.4],[-1.2,4.4],[1.2,4.4]]) {
+                const bolt = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.12,0.12,0.1,8),
+                    boltMat
+                );
+                bolt.rotation.x = Math.PI/2; bolt.position.set(bx,by,0.06); grp.add(bolt);
+            }
+
+            // Type label on strip
+            const labelMap = {power:'PWR-ROUTE',fuse:'FUSE-BOX',sequence:'SEQ-LOCK'};
+
+            scene.add(grp);
+            return {
+                worldX: pwx, worldZ: pwz,
+                type: typeStr,
+                solved: false,
+                group: grp,
+                screenMat,
+                stripMat,
+                light: pLight,
+                label: labelMap[typeStr]
+            };
+        }
+
+        // Place all 3 panels
+        for (let i = 0; i < 3; i++) {
+            const seed = panelSearchSeeds[i];
+            const cell = findWallCell(seed.sx, seed.sz);
+            if (cell) {
+                const panel = buildWallPanel(cell.cx, cell.cz, cell.wx, cell.wz, PUZZLE_TYPES[i]);
+                wallPanels.push(panel);
+            }
+        }
 
         // ================================================================
         //  TERMINAL PANEL — wall-anchored, never floating
