@@ -1147,7 +1147,7 @@ corridorLights.forEach(cl => {
     const now = performance.now();
     let targetI = 1.0;
 
-    // 1. Flicker/Broken Logic
+    // 1. Flicker/Broken Logic (Kept exactly as yours)
     if (cl.broken) {
         const t = now * 0.001 * cl.rate + cl.seed;
         const noise = Math.sin(t * 7.8) * Math.sin(t * 3.3) * Math.sin(t * 15.0);
@@ -1160,7 +1160,7 @@ corridorLights.forEach(cl => {
     if (cl.currentI === undefined) cl.currentI = 0;
     cl.currentI += (targetI - cl.currentI) * 0.25; 
 
-    // 2. The Logic Fix
+    // 2. The Ultimate Shadow Fix
     if (cl.light) {
         cl.light.intensity = cl.base * cl.currentI;
 
@@ -1169,22 +1169,22 @@ corridorLights.forEach(cl => {
         const dz = camera.position.z - cl.light.position.z;
         const distSq = dx*dx + dz*dz;
 
-        // If further than ~5 tiles (60 units), we stop "re-drawing" the shadow map.
-        // CRITICAL: We keep .castShadow = true. This prevents the "Lag Spike."
-        if (distSq < 3600) { 
-            cl.light.shadow.autoUpdate = true; 
-        } else {
-            cl.light.shadow.autoUpdate = false; 
-        }
+        // ---> THE NEW FIX: Combine Distance AND Intensity <---
+        // The shadow map only re-draws if the light is CLOSE (< 60 units) 
+        // AND the light is actually ON (intensity > 0.1).
+        const isClose = distSq < 3600;
+        const isBrightEnough = cl.light.intensity > 0.1;
+
+        cl.light.shadow.autoUpdate = (isClose && isBrightEnough);
         
-        // Quality Optimization: Only let the shadow "look" as far as the hallway width
-        // This makes the high-res shadows even faster.
+        // Quality Optimization: Keep the shadow camera tight
         if(cl.light.shadow.camera.far !== 45) {
             cl.light.shadow.camera.far = 45;
             cl.light.shadow.camera.updateProjectionMatrix();
         }
     }
 
+    // Keep your emissive strip syncing with the light
     if (cl.strip) cl.strip.emissiveIntensity = 2.5 * cl.currentI;
 });
    // ---- HIGH-SPEED MESH CULLING (FPS BOOST) ----
