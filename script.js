@@ -1123,7 +1123,7 @@ const startPos=getPos(1,1);
                 if(p.userData.life<=0){scene.remove(p);if(p.userData.type==='steam')p.userData.mat.dispose();particles.splice(i,1);}
             }
 
-// ---- SIMPLE LIGHT UPDATE (With Performance Culling) ----
+// ---- SIMPLE LIGHT UPDATE (Cleaned of Culling) ----
 corridorLights.forEach(cl => {
     const now = performance.now();
     let targetI = 1.0;
@@ -1145,6 +1145,7 @@ corridorLights.forEach(cl => {
     // 1. Update the Simple PointLight
     if (cl.light) {
         cl.light.intensity = cl.base * cl.currentI;
+        // Distance-based shadow toggling removed to stop lag spikes
     }
 
     // 2. Update the Emissive Mesh (The actual ceiling fixture tube)
