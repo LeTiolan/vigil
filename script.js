@@ -500,20 +500,22 @@ function playFlashlightClick() {
             return false;
         }
 
-    // ================================================================
+// ================================================================
         //  LEVEL GEOMETRY (Optimized for Performance)
         // ================================================================
         
-        // 1. DEFINE LISTS FIRST (Required so we can .push to them below)
-        const corridorLights = [];
-        const cullableMeshes = []; 
+        // 1. SETUP LISTS
+        // We define these without 'const' here to ensure they are 
+        // accessible by the update() loop and audio systems.
+        window.corridorLights = [];
+        window.cullableMeshes = []; 
 
         // 2. FLOOR
         const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE, MAZE_SIZE*TILE_SIZE), matFloor);
         floorMesh.rotation.x = -Math.PI/2;
         floorMesh.receiveShadow = true;
         scene.add(floorMesh);
-        cullableMeshes.push(floorMesh); // Register for performance culling
+        cullableMeshes.push(floorMesh); 
 
         // 3. CEILING
         const ceilMesh = new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE, MAZE_SIZE*TILE_SIZE), matCeil);
@@ -521,7 +523,7 @@ function playFlashlightClick() {
         ceilMesh.position.y = 14;
         ceilMesh.receiveShadow = true;
         scene.add(ceilMesh);
-        cullableMeshes.push(ceilMesh); // Register for performance culling
+        cullableMeshes.push(ceilMesh); 
 
         // 4. WALLS (InstancedMesh)
         let wallCount = 0;
@@ -553,12 +555,13 @@ function playFlashlightClick() {
 
         iWallMesh.instanceMatrix.needsUpdate = true;
         scene.add(iWallMesh);
-        cullableMeshes.push(iWallMesh); // Register for performance culling
+        cullableMeshes.push(iWallMesh); 
 
-        // --- SIMPLE FUNCTIONING LIGHTS (Using pre-defined lists) ---
+        // --- SIMPLE FUNCTIONING LIGHTS (Now safely following the geometry) ---
         {
             const sp = getPos(1, 1);
             let added = 0;
+            // ... (Rest of your light fixture code follows)
             
             // 1. Procedural Scratched Texture (Keeping your original material!)
             const lightTexCanvas = document.createElement('canvas');
