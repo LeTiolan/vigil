@@ -153,7 +153,7 @@
         camera.rotation.order='YXZ';
 
        const renderer = new THREE.WebGLRenderer({ antialias: false });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1) * 0.6);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1) * 0.4);
 renderer.setSize(innerWidth, innerHeight);
 
 // Enable Shadows
@@ -164,7 +164,7 @@ document.body.appendChild(renderer.domElement);
 // Bodycam flashlight — Bigger, detailed, and toggleable
         let flashlightOn = true;
         const flash1=new THREE.SpotLight(0xfffdd8,150,80,Math.PI/4,0.1,1.8); 
-        flash1.castShadow=true; flash1.shadow.mapSize.setScalar(512); flash1.shadow.bias=-0.001;
+        flash1.castShadow=true; flash1.shadow.mapSize.setScalar(256); flash1.shadow.bias=-0.001;
         
         const flash2=new THREE.SpotLight(0xffe8c0,30,45,Math.PI/2.5,0.8,2.2); 
         flash2.castShadow=false;
