@@ -393,6 +393,42 @@ function playFlashlightClick() {
             g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
             o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur);
         }
+function playPuzzleTick() {
+            resume();
+            const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+            o.type='square'; o.frequency.value=1200;
+            g.gain.setValueAtTime(0.06,audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.04);
+            o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.04);
+        }
+        function playPuzzleSuccess() {
+            resume();
+            [440,550,660,880].forEach((f,i)=>{
+                const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+                o.type='sine'; o.frequency.value=f;
+                const t=audioCtx.currentTime+i*0.1;
+                g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.18,t+0.02);
+                g.gain.exponentialRampToValueAtTime(0.001,t+0.35);
+                o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+0.36);
+            });
+        }
+        function playPuzzleFail() {
+            resume();
+            const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+            o.type='sawtooth'; o.frequency.setValueAtTime(180,audioCtx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(60,audioCtx.currentTime+0.3);
+            g.gain.setValueAtTime(0.14,audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.3);
+            o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.3);
+        }
+        function playDialClick() {
+            resume();
+            const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+            o.type='square'; o.frequency.value=300;
+            g.gain.setValueAtTime(0.08,audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.05);
+            o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.05);
+        }
 
         // ================================================================
         //  TEXTURES — 256x256 NearestFilter PSX style
