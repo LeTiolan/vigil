@@ -545,12 +545,12 @@ function playFlashlightClick() {
 
         iWallMesh.instanceMatrix.needsUpdate = true;
         scene.add(iWallMesh);
-
 // --- SIMPLE FUNCTIONING LIGHTS (Keeping Original Fixture) ---
-        const corridorLights = [];
-        {
-            const sp = getPos(1, 1);
-            let added = 0;
+const corridorLights = [];
+const cullableMeshes = []; // <--- ADD THIS LINE HERE
+{
+    const sp = getPos(1, 1);
+    let added = 0;
             
             // 1. Procedural Scratched Texture (Keeping your original material!)
             const lightTexCanvas = document.createElement('canvas');
