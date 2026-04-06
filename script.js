@@ -511,10 +511,10 @@ function playFlashlightClick() {
         // ================================================================
         
         // 1. SETUP LISTS
-        // We define these without 'const' here to ensure they are 
-        // accessible by the update() loop and audio systems.
-        window.corridorLights = [];
-        window.cullableMeshes = []; 
+        // We do NOT use 'let', 'const', or 'window' here. 
+        // This links directly to the global lists we made at the top.
+        corridorLights = [];
+        cullableMeshes = []; 
 
         // 2. FLOOR
         const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE, MAZE_SIZE*TILE_SIZE), matFloor);
@@ -561,7 +561,7 @@ function playFlashlightClick() {
 
         iWallMesh.instanceMatrix.needsUpdate = true;
         scene.add(iWallMesh);
-        cullableMeshes.push(iWallMesh); 
+        cullableMeshes.push(iWallMesh);
 
         // --- SIMPLE FUNCTIONING LIGHTS (Now safely following the geometry) ---
         {
