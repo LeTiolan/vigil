@@ -500,20 +500,30 @@ function playFlashlightClick() {
             return false;
         }
 
+    // ================================================================
+        //  LEVEL GEOMETRY (Optimized for Performance)
         // ================================================================
-        //  LEVEL GEOMETRY
-        // ================================================================
-// Floor
-const floorMesh=new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE,MAZE_SIZE*TILE_SIZE),matFloor);
-floorMesh.rotation.x=-Math.PI/2;floorMesh.receiveShadow=true;scene.add(floorMesh);
-cullableMeshes.push(floorMesh); // <--- ADD THIS
+        
+        // 1. DEFINE LISTS FIRST (Required so we can .push to them below)
+        const corridorLights = [];
+        const cullableMeshes = []; 
 
-       // Ceiling — same plane size as floor, at height 14
-const ceilMesh=new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE,MAZE_SIZE*TILE_SIZE),matCeil);
-ceilMesh.rotation.x=Math.PI/2;ceilMesh.position.y=14;scene.add(ceilMesh);
-cullableMeshes.push(ceilMesh); // <--- ADD THIS
+        // 2. FLOOR
+        const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE, MAZE_SIZE*TILE_SIZE), matFloor);
+        floorMesh.rotation.x = -Math.PI/2;
+        floorMesh.receiveShadow = true;
+        scene.add(floorMesh);
+        cullableMeshes.push(floorMesh); // Register for performance culling
 
-       // Walls — InstancedMesh (1 draw call for all walls)
+        // 3. CEILING
+        const ceilMesh = new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE, MAZE_SIZE*TILE_SIZE), matCeil);
+        ceilMesh.rotation.x = Math.PI/2;
+        ceilMesh.position.y = 14;
+        ceilMesh.receiveShadow = true;
+        scene.add(ceilMesh);
+        cullableMeshes.push(ceilMesh); // Register for performance culling
+
+        // 4. WALLS (InstancedMesh)
         let wallCount = 0;
         for (let i = 0; i < MAZE_SIZE; i++) {
             for (let j = 0; j < MAZE_SIZE; j++) {
@@ -522,13 +532,9 @@ cullableMeshes.push(ceilMesh); // <--- ADD THIS
         }
 
         const iWallGeo = new THREE.BoxGeometry(TILE_SIZE, 14, TILE_SIZE);
-        
-        // Fix for "leaking" light at the edges: ensures backfaces block light too
         matWall.shadowSide = THREE.DoubleSide; 
 
         const iWallMesh = new THREE.InstancedMesh(iWallGeo, matWall, wallCount);
-        
-        // CRITICAL: These tell the walls to actually stop the light beams
         iWallMesh.castShadow = true;
         iWallMesh.receiveShadow = true;
 
@@ -547,12 +553,12 @@ cullableMeshes.push(ceilMesh); // <--- ADD THIS
 
         iWallMesh.instanceMatrix.needsUpdate = true;
         scene.add(iWallMesh);
-// --- SIMPLE FUNCTIONING LIGHTS (Keeping Original Fixture) ---
-const corridorLights = [];
-const cullableMeshes = []; // <--- ADD THIS LINE HERE
-{
-    const sp = getPos(1, 1);
-    let added = 0;
+        cullableMeshes.push(iWallMesh); // Register for performance culling
+
+        // --- SIMPLE FUNCTIONING LIGHTS (Using pre-defined lists) ---
+        {
+            const sp = getPos(1, 1);
+            let added = 0;
             
             // 1. Procedural Scratched Texture (Keeping your original material!)
             const lightTexCanvas = document.createElement('canvas');
