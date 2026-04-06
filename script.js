@@ -516,12 +516,12 @@ function playFlashlightClick() {
         corridorLights = [];
         cullableMeshes = []; 
 
-        // 2. FLOOR
+   // 2. FLOOR
         const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE, MAZE_SIZE*TILE_SIZE), matFloor);
         floorMesh.rotation.x = -Math.PI/2;
         floorMesh.receiveShadow = true;
         scene.add(floorMesh);
-        cullableMeshes.push(floorMesh); 
+        // REMOVED: cullableMeshes.push(floorMesh); <-- Do not put it in the bucket!
 
         // 3. CEILING
         const ceilMesh = new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE, MAZE_SIZE*TILE_SIZE), matCeil);
@@ -529,7 +529,7 @@ function playFlashlightClick() {
         ceilMesh.position.y = 14;
         ceilMesh.receiveShadow = true;
         scene.add(ceilMesh);
-        cullableMeshes.push(ceilMesh); 
+        // REMOVED: cullableMeshes.push(ceilMesh); <-- Do not put it in the bucket!
 
         // 4. WALLS (InstancedMesh)
         let wallCount = 0;
