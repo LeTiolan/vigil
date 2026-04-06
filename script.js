@@ -1069,19 +1069,19 @@ const startPos=getPos(1,1);
                 const moving=inp.length()>0,isSprinting=keys['ShiftLeft']&&moving&&!player.isExhausted;
                 currentlySprinting=isSprinting;
 
-          // --- NEW: Bulletproof F Key Toggle (Smooth Intensity Version) ---
-                if(keys['KeyF'] && !window.fKeyWasPressed) {
-                    flashlightOn = !flashlightOn;
-                    
-                    // FIXED: Use intensity instead of visibility to prevent lag spikes
-                    flash1.intensity = flashlightOn ? 150 : 0;
-                    flash2.intensity = flashlightOn ? 30 : 0;
-                    
-                    if(typeof playFlashlightClick === 'function') playFlashlightClick();
-                    window.fKeyWasPressed = true;
-                } else if (!keys['KeyF']) {
-                    window.fKeyWasPressed = false;
-                }
+        // --- NEW: Bulletproof F Key Toggle (Smooth Intensity Version) ---
+if(keys['KeyF'] && !window.fKeyWasPressed) {
+    flashlightOn = !flashlightOn;
+    
+    // FIXED: Use intensity instead of visibility to prevent lag spikes
+    flash1.intensity = flashlightOn ? 150 : 0;
+    flash2.intensity = flashlightOn ? 30 : 0;
+    
+    if(typeof playFlashlightClick === 'function') playFlashlightClick();
+    window.fKeyWasPressed = true;
+} else if (!keys['KeyF']) {
+    window.fKeyWasPressed = false;
+}
 
                 if(isSprinting){player.stamina-=0.4;if(player.stamina<=0)player.isExhausted=true;}
                 else{player.stamina=Math.min(MAX_STAMINA,player.stamina+0.9);if(player.stamina>=MAX_STAMINA*0.25)player.isExhausted=false;}
