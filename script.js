@@ -1145,13 +1145,6 @@ corridorLights.forEach(cl => {
     // 1. Update the Simple PointLight
     if (cl.light) {
         cl.light.intensity = cl.base * cl.currentI;
-        
-        // --- DYNAMIC SHADOW CULLING (MASSIVE FPS BOOST) ---
-        // Calculate how far this light is from the player
-        const dist = Math.hypot(camera.position.x - cl.light.position.x, camera.position.z - cl.light.position.z);
-        
-        // Only render shadows if the player is within 50 units (approx 4 tiles)
-        cl.light.castShadow = (dist < 50); 
     }
 
     // 2. Update the Emissive Mesh (The actual ceiling fixture tube)
