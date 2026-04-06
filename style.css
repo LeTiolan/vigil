@@ -162,3 +162,16 @@ body {
 #radar {
     image-rendering: pixelated !important;
 }
+/* =============================================
+   PUZZLE OVERLAY
+   ============================================= */
+#puzzle-overlay { display:none; }
+#puzzle-overlay.active { display:flex !important; }
+
+#puzzle-canvas {
+    cursor:pointer;
+    user-select:none; -webkit-user-select:none;
+}
+
+/* Dial drag cursor */
+.dial-active { cursor:ew-resize; }
