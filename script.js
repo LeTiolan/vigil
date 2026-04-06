@@ -1069,11 +1069,14 @@ const startPos=getPos(1,1);
                 const moving=inp.length()>0,isSprinting=keys['ShiftLeft']&&moving&&!player.isExhausted;
                 currentlySprinting=isSprinting;
 
-                // --- NEW: Bulletproof F Key Toggle ---
+          // --- NEW: Bulletproof F Key Toggle (Smooth Intensity Version) ---
                 if(keys['KeyF'] && !window.fKeyWasPressed) {
                     flashlightOn = !flashlightOn;
-                    flash1.visible = flashlightOn;
-                    flash2.visible = flashlightOn;
+                    
+                    // FIXED: Use intensity instead of visibility to prevent lag spikes
+                    flash1.intensity = flashlightOn ? 150 : 0;
+                    flash2.intensity = flashlightOn ? 30 : 0;
+                    
                     if(typeof playFlashlightClick === 'function') playFlashlightClick();
                     window.fKeyWasPressed = true;
                 } else if (!keys['KeyF']) {
