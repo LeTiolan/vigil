@@ -1181,28 +1181,29 @@ corridorLights.forEach(cl => {
 
     if (cl.strip) cl.strip.emissiveIntensity = 2.5 * cl.currentI;
 });
-                // ---- MESH DISTANCE CULLING (FPS BOOST) ----
-// This hides walls/floors that are too far away to see.
-// Toggling .visible on meshes does NOT cause lag spikes.
-scene.children.forEach(obj => {
-    // We only care about meshes (walls, floors, ceilings)
-    if (obj.isMesh) {
-        // Skip the player/camera parts so they don't disappear
-        if (obj === camera || obj.name === "player") return;
+     // ---- HIGH-SPEED MESH CULLING (FPS BOOST) ----
+// We only check the specific "bucket" of walls and floors
+if (typeof cullableMeshes !== 'undefined' && cullableMeshes.length > 0) {
+    cullableMeshes.forEach(obj => {
+        // Safety: ensure the object exists
+        if (!obj) return;
 
         const dx = camera.position.x - obj.position.x;
         const dz = camera.position.z - obj.position.z;
         const distSq = dx*dx + dz*dz;
 
-        // If further than 100 units (~8 tiles), hide it entirely.
-        // This dramatically reduces "Draw Calls" for the GPU.
-        if (distSq > 10000) { 
+        // Thresholds: 
+        // 1. If it's the giant Wall Mesh (iWallMesh), we use a massive distance (400 units)
+        // 2. If it's a Floor/Ceiling, we use 120 units
+        let limit = (obj.count !== undefined) ? 160000 : 14400; 
+
+        if (distSq > limit) {
             if (obj.visible) obj.visible = false;
         } else {
             if (!obj.visible) obj.visible = true;
         }
-    }
-});
+    });
+}
             // ---- TERMINAL BUTTON ANIMATION ----
             if(terminalBtnT>0){terminalBtnT-=delta;if(terminalBtnT<=0)termBtn.position.z=0.56;}
             if(doorState==='ready_terminal'&&!terminalActivated)termLight.intensity=2.8+1.6*Math.sin(now*0.006);
