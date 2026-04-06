@@ -503,13 +503,15 @@ function playFlashlightClick() {
         // ================================================================
         //  LEVEL GEOMETRY
         // ================================================================
-        // Floor
-        const floorMesh=new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE,MAZE_SIZE*TILE_SIZE),matFloor);
-        floorMesh.rotation.x=-Math.PI/2;floorMesh.receiveShadow=true;scene.add(floorMesh);
+// Floor
+const floorMesh=new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE,MAZE_SIZE*TILE_SIZE),matFloor);
+floorMesh.rotation.x=-Math.PI/2;floorMesh.receiveShadow=true;scene.add(floorMesh);
+cullableMeshes.push(floorMesh); // <--- ADD THIS
 
-        // Ceiling — same plane size as floor, at height 14
-        const ceilMesh=new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE,MAZE_SIZE*TILE_SIZE),matCeil);
-        ceilMesh.rotation.x=Math.PI/2;ceilMesh.position.y=14;scene.add(ceilMesh);
+       // Ceiling — same plane size as floor, at height 14
+const ceilMesh=new THREE.Mesh(new THREE.PlaneGeometry(MAZE_SIZE*TILE_SIZE,MAZE_SIZE*TILE_SIZE),matCeil);
+ceilMesh.rotation.x=Math.PI/2;ceilMesh.position.y=14;scene.add(ceilMesh);
+cullableMeshes.push(ceilMesh); // <--- ADD THIS
 
        // Walls — InstancedMesh (1 draw call for all walls)
         let wallCount = 0;
