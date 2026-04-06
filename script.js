@@ -603,14 +603,14 @@ function playFlashlightClick() {
                     lightGroup.add(strip);
                     scene.add(lightGroup);
 
-                    // D. THE SIMPLE FUNCTIONING LIGHT
+                  // D. THE SIMPLE FUNCTIONING LIGHT
                     const light = new THREE.PointLight(0x88bbff, 60, 25, 2);
                     light.position.set(pos.x, 12.5, pos.z);
                     
                     // Basic shadow setup that won't leak or draw lines
                     light.castShadow = true;
-                    light.shadow.mapSize.width = 512;
-                    light.shadow.mapSize.height = 512;
+                    light.shadow.mapSize.width = 256;  // <--- LOWERED FOR PERFORMANCE
+                    light.shadow.mapSize.height = 256; // <--- LOWERED FOR PERFORMANCE
                     light.shadow.bias = -0.005; 
 
                     scene.add(light);
