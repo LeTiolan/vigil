@@ -1123,7 +1123,7 @@ const startPos=getPos(1,1);
                 if(p.userData.life<=0){scene.remove(p);if(p.userData.type==='steam')p.userData.mat.dispose();particles.splice(i,1);}
             }
 
-// ---- SIMPLE LIGHT UPDATE (Keeping Fixture Visuals) ----
+// ---- SIMPLE LIGHT UPDATE (With Performance Culling) ----
 corridorLights.forEach(cl => {
     const now = performance.now();
     let targetI = 1.0;
@@ -1142,8 +1142,17 @@ corridorLights.forEach(cl => {
     if (cl.currentI === undefined) cl.currentI = 0;
     cl.currentI += (targetI - cl.currentI) * 0.25; 
 
-    // 1. Update the Simple PointLight (The functioning room illumination)
-    if (cl.light) cl.light.intensity = cl.base * cl.currentI;
+    // 1. Update the Simple PointLight
+    if (cl.light) {
+        cl.light.intensity = cl.base * cl.currentI;
+        
+        // --- DYNAMIC SHADOW CULLING (MASSIVE FPS BOOST) ---
+        // Calculate how far this light is from the player
+        const dist = Math.hypot(camera.position.x - cl.light.position.x, camera.position.z - cl.light.position.z);
+        
+        // Only render shadows if the player is within 50 units (approx 4 tiles)
+        cl.light.castShadow = (dist < 50); 
+    }
 
     // 2. Update the Emissive Mesh (The actual ceiling fixture tube)
     if (cl.strip) cl.strip.emissiveIntensity = 2.5 * cl.currentI;
