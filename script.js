@@ -1543,6 +1543,27 @@ corridorLights.forEach(cl => {
                 }
             }
 
+                // --- UPDATE DUST PARTICLES ---
+            if (dustParticles) {
+                const positions = dustParticles.geometry.attributes.position.array;
+                const time = Date.now() * 0.001;
+
+                for (let i = 0; i < dustCount; i++) {
+                    positions[i * 3] += dustVel[i].x;
+                    positions[i * 3 + 1] += dustVel[i].y;
+                    positions[i * 3 + 2] += dustVel[i].z;
+
+                    // Add a tiny sine-wave sway to simulate air currents
+                    positions[i * 3] += Math.sin(time + i) * 0.005;
+
+                    // If a dust mote hits the floor, teleport it back to the ceiling
+                    if (positions[i * 3 + 1] < 0) {
+                        positions[i * 3 + 1] = 14;
+                    }
+                }
+                dustParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
             // ---- WIN ----
             if(doorState==='open'&&camPos.z>doorGroup.position.z+1.5&&!gameWon){
                 gameWon=true;document.exitPointerLock();
