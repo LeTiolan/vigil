@@ -153,8 +153,7 @@ renderer.setSize(innerWidth, innerHeight);
 // Enable Shadows
 renderer.shadowMap.enabled = true;
 // CHANGE THIS LINE for the smooth look:
-renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
-
+renderer.shadowMap.type = THREE.PCFShadowMap;
 document.body.appendChild(renderer.domElement);
 // Bodycam flashlight — Bigger, detailed, and toggleable
         let flashlightOn = true;
