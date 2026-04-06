@@ -153,7 +153,7 @@
         camera.rotation.order='YXZ';
 
        const renderer = new THREE.WebGLRenderer({ antialias: false });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1) * 0.4);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1) * 0.3);
 renderer.setSize(innerWidth, innerHeight);
 
 // Enable Shadows
