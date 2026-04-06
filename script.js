@@ -185,7 +185,7 @@ document.body.appendChild(renderer.domElement);
 // ================================================================
         //  AMBIENT DUST PARTICLES (ZERO PERFORMANCE HIT)
         // ================================================================
-        const dustCount = 2500; // 2,500 particles costs nothing for THREE.Points
+        const dustCount = 800; 
         const dustGeo = new THREE.BufferGeometry();
         const dustPos = new Float32Array(dustCount * 3);
         const dustVel = [];
