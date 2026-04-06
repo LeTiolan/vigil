@@ -425,15 +425,22 @@ function playFlashlightClick() {
             return makeTex(c);
         }
 
-        // Orb animated fluid canvas — updated each frame
+// Orb animated fluid canvas — updated each frame
         const orbCanvas=document.createElement('canvas');orbCanvas.width=64;orbCanvas.height=64;
         const orbCtx=orbCanvas.getContext('2d');
         const orbTex=new THREE.CanvasTexture(orbCanvas);
         orbTex.magFilter=THREE.LinearFilter;orbTex.minFilter=THREE.LinearFilter;
 
+        // ---> THE FIX: Create the memory block ONCE outside the loop <---
+        const orbImageData = orbCtx.createImageData(64, 64);
+
         function updateOrbTex(now){
             const t=now*0.0018;const w=64,h=64;
-            const id=orbCtx.createImageData(w,h);const data=id.data;
+            
+            // ---> THE FIX: Reuse the existing memory block <---
+            const id=orbImageData; 
+            const data=id.data;
+            
             for(let y=0;y<h;y++)for(let x=0;x<w;x++){
                 const nx=(x/w)*2-1,ny=(y/h)*2-1,r=Math.sqrt(nx*nx+ny*ny);
                 if(r>1){data[(y*w+x)*4+3]=0;continue;}
