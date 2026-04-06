@@ -121,6 +121,42 @@
   let yaw=Math.PI, pitch=0; const SENSITIVITY=0.002;
         let introShown=false, sprintAlertCD=0, lastFootCycle=0;
         let terminalActivated=false, terminalBtnT=0, currentlySprinting=false;
+// ================================================================
+        //  PUZZLE STATE
+        // ================================================================
+        // How many wall puzzles the player must solve (3 panels)
+        const TOTAL_PUZZLES = 3;
+        let puzzlesSolved = 0;      // increments on each panel solve
+        let activePuzzle = null;    // {type, panelObj, solved}
+        let puzzleOpen = false;
+
+        // -- Power Routing (Puzzle A) state --
+        const PR_SIZE = 4; // 4x4 grid
+        let prGrid = [];   // will be populated per-panel
+
+        // -- Fuse Box (Puzzle B) state --
+        let fuseGrid = [];      // 4x4 array of values (0=empty, 1=normal, 2=master)
+        let fuseEmpty = {r:0,c:0}; // position of empty slot
+
+        // -- Frequency Tuner (Puzzle C) state --
+        let ftFreqDial = 0;   // 0–11 steps (0–165 degrees)
+        let ftAmpDial  = 0;   // 0–11 steps
+        let ftTarget   = {freq:5, amp:4}; // randomised per panel
+        let ftLockTimer = 0;  // counts up when matched
+
+        // -- Sequence Override (Puzzle D) state --
+        let soSequence  = [];    // master sequence (up to 4)
+        let soPlayerSeq = [];    // what player has input so far
+        let soRound     = 0;     // 0-indexed, how many buttons in current sub-sequence
+        let soFlashing  = [];    // [{btnIdx, timer}] — buttons flashing their display
+        let soState     = 'watching'; // 'watching' | 'input' | 'failed'
+        let soFlashTimer = 0;    // countdown between flashes during show phase
+
+        // Dial drag state for Frequency Tuner
+        let dialDragActive = false, dialDragId = -1, dialDragStartX = 0, dialDragStartVal = 0;
+
+        // 3D panel objects for each wall puzzle (filled after placement)
+        const wallPanels = []; // [{worldX, worldZ, type, solved, screenMat, emissiveLine, light}]
         const exploredCells=new Set();
         
         // --- BULLETPROOF KEYBOARD TRACKER ---
