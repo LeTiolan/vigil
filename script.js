@@ -1126,32 +1126,42 @@ if(keys['KeyF'] && !window.fKeyWasPressed) {
                 if(p.userData.life<=0){scene.remove(p);if(p.userData.type==='steam')p.userData.mat.dispose();particles.splice(i,1);}
             }
 
-// ---- SIMPLE LIGHT UPDATE (Cleaned of Culling) ----
+// ---- HIGH-RES SHADOW OPTIMIZATION (No Lag Spikes) ----
 corridorLights.forEach(cl => {
     const now = performance.now();
     let targetI = 1.0;
 
-    // Determine what the brightness SHOULD be
+    // 1. Flicker Logic (Keep this)
     if (cl.broken) {
         const t = now * 0.001 * cl.rate + cl.seed;
         const noise = Math.sin(t * 7.8) * Math.sin(t * 3.3) * Math.sin(t * 15.0);
         targetI = noise > 0.1 ? 1.0 : 0.05;
-        if (Math.random() > 0.98) targetI = 0; // Total cutout
+        if (Math.random() > 0.98) targetI = 0; 
     } else {
-        targetI = 0.9 + Math.sin(now * 0.005 + cl.seed) * 0.1; // Electrical hum
+        targetI = 0.9 + Math.sin(now * 0.005 + cl.seed) * 0.1; 
     }
 
-    // SMOOTHING: Transition cl.currentI toward targetI
     if (cl.currentI === undefined) cl.currentI = 0;
     cl.currentI += (targetI - cl.currentI) * 0.25; 
 
-    // 1. Update the Simple PointLight
+    // 2. The Performance Fix
     if (cl.light) {
         cl.light.intensity = cl.base * cl.currentI;
-        // Distance-based shadow toggling removed to stop lag spikes
+
+        // Calculate distance squared (faster than Math.hypot)
+        const dx = camera.position.x - cl.light.position.x;
+        const dz = camera.position.z - cl.light.position.z;
+        const distSq = dx*dx + dz*dz;
+
+        // If further than ~5 tiles (60 units), stop re-rendering the shadow map.
+        // We KEEP .castShadow = true so the GPU doesn't have to recompile shaders.
+        if (distSq < 3600) { 
+            cl.light.shadow.autoUpdate = true; 
+        } else {
+            cl.light.shadow.autoUpdate = false; 
+        }
     }
 
-    // 2. Update the Emissive Mesh (The actual ceiling fixture tube)
     if (cl.strip) cl.strip.emissiveIntensity = 2.5 * cl.currentI;
 });
             // ---- TERMINAL BUTTON ANIMATION ----
