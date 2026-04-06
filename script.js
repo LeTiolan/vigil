@@ -177,6 +177,12 @@
         const radarCanvas=document.getElementById('radar');
         const rCtx=radarCanvas.getContext('2d');
         const RC=radarCanvas.width/2, R_MAX=105, R_SCL=(RC-12)/R_MAX;
+// Puzzle overlay DOM refs
+        const elPuzzleOverlay = document.getElementById('puzzle-overlay');
+        const elPuzzleCanvas  = document.getElementById('puzzle-canvas');
+        const elPuzzleTitle   = document.getElementById('puzzle-title');
+        const elPuzzleStatus  = document.getElementById('puzzle-status');
+        const pCtx = elPuzzleCanvas.getContext('2d');
 
         // ================================================================
         //  SCENE — PSX style: low pixel ratio, nearest filter, no AA
