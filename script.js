@@ -1125,12 +1125,12 @@ if(keys['KeyF'] && !window.fKeyWasPressed) {
                 if(p.userData.life<=0){scene.remove(p);if(p.userData.type==='steam')p.userData.mat.dispose();particles.splice(i,1);}
             }
 
-// ---- HIGH-RES SHADOW OPTIMIZATION (No Lag Spikes) ----
+// ---- PERFORMANCE OPTIMIZED LIGHT UPDATE (Lag-Free) ----
 corridorLights.forEach(cl => {
     const now = performance.now();
     let targetI = 1.0;
 
-    // 1. Flicker Logic (Keep this)
+    // 1. Flicker/Broken Logic
     if (cl.broken) {
         const t = now * 0.001 * cl.rate + cl.seed;
         const noise = Math.sin(t * 7.8) * Math.sin(t * 3.3) * Math.sin(t * 15.0);
@@ -1143,21 +1143,28 @@ corridorLights.forEach(cl => {
     if (cl.currentI === undefined) cl.currentI = 0;
     cl.currentI += (targetI - cl.currentI) * 0.25; 
 
-    // 2. The Performance Fix
+    // 2. The Logic Fix
     if (cl.light) {
         cl.light.intensity = cl.base * cl.currentI;
 
-        // Calculate distance squared (faster than Math.hypot)
+        // Calculate distance squared to the player
         const dx = camera.position.x - cl.light.position.x;
         const dz = camera.position.z - cl.light.position.z;
         const distSq = dx*dx + dz*dz;
 
-        // If further than ~5 tiles (60 units), stop re-rendering the shadow map.
-        // We KEEP .castShadow = true so the GPU doesn't have to recompile shaders.
+        // If further than ~5 tiles (60 units), we stop "re-drawing" the shadow map.
+        // CRITICAL: We keep .castShadow = true. This prevents the "Lag Spike."
         if (distSq < 3600) { 
             cl.light.shadow.autoUpdate = true; 
         } else {
             cl.light.shadow.autoUpdate = false; 
+        }
+        
+        // Quality Optimization: Only let the shadow "look" as far as the hallway width
+        // This makes the high-res shadows even faster.
+        if(cl.light.shadow.camera.far !== 45) {
+            cl.light.shadow.camera.far = 45;
+            cl.light.shadow.camera.updateProjectionMatrix();
         }
     }
 
