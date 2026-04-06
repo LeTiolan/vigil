@@ -182,6 +182,42 @@ document.body.appendChild(renderer.domElement);
 
         const hemi=new THREE.HemisphereLight(0x14181c,0x08090a,0.35); scene.add(hemi);
 
+// ================================================================
+        //  AMBIENT DUST PARTICLES (ZERO PERFORMANCE HIT)
+        // ================================================================
+        const dustCount = 2500; // 2,500 particles costs nothing for THREE.Points
+        const dustGeo = new THREE.BufferGeometry();
+        const dustPos = new Float32Array(dustCount * 3);
+        const dustVel = [];
+
+        for (let i = 0; i < dustCount; i++) {
+            // Scatter randomly across the 300x300 maze
+            dustPos[i * 3] = (Math.random() - 0.5) * 300; 
+            // Scatter from the floor (0) to the ceiling (14)
+            dustPos[i * 3 + 1] = Math.random() * 14;      
+            dustPos[i * 3 + 2] = (Math.random() - 0.5) * 300;
+
+            // Give each particle a random drift speed
+            dustVel.push({
+                x: (Math.random() - 0.5) * 0.015,
+                y: (Math.random() - 0.5) * 0.01 - 0.005, // Slight gravity pull down
+                z: (Math.random() - 0.5) * 0.015
+            });
+        }
+
+        dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+
+        const dustMat = new THREE.PointsMaterial({
+            color: 0x99aaaf,     // Dirty, pale grey/blue
+            size: 0.25,          // Size of the pixel dust
+            transparent: true,
+            opacity: 0.4,
+            depthWrite: false    // CRITICAL: Prevents dust from creating weird black outlines
+        });
+
+        const dustParticles = new THREE.Points(dustGeo, dustMat);
+        scene.add(dustParticles);
+
         // ================================================================
         //  AUDIO
         // ================================================================
