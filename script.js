@@ -1187,29 +1187,29 @@ corridorLights.forEach(cl => {
 
     if (cl.strip) cl.strip.emissiveIntensity = 2.5 * cl.currentI;
 });
-     // ---- HIGH-SPEED MESH CULLING (FPS BOOST) ----
-// We only check the specific "bucket" of walls and floors
-if (typeof cullableMeshes !== 'undefined' && cullableMeshes.length > 0) {
-    cullableMeshes.forEach(obj => {
-        // Safety: ensure the object exists
-        if (!obj) return;
+   // ---- HIGH-SPEED MESH CULLING (FPS BOOST) ----
+        // We only check the specific "bucket" of walls and floors
+        if (typeof cullableMeshes !== 'undefined' && cullableMeshes.length > 0) {
+            cullableMeshes.forEach(obj => {
+                // Safety: ensure the object and its position exist
+                if (!obj || !obj.position) return;
 
-        const dx = camera.position.x - obj.position.x;
-        const dz = camera.position.z - obj.position.z;
-        const distSq = dx*dx + dz*dz;
+                const dx = camera.position.x - obj.position.x;
+                const dz = camera.position.z - obj.position.z;
+                const distSq = dx*dx + dz*dz;
 
-        // Thresholds: 
-        // 1. If it's the giant Wall Mesh (iWallMesh), we use a massive distance (400 units)
-        // 2. If it's a Floor/Ceiling, we use 120 units
-        let limit = (obj.count !== undefined) ? 160000 : 14400; 
+                // Thresholds: 
+                // 1. If it's the giant Wall Mesh (iWallMesh), we use a massive distance (400 units)
+                // 2. If it's a Floor/Ceiling, we use 120 units
+                let limit = (obj.count !== undefined) ? 160000 : 14400; 
 
-        if (distSq > limit) {
-            if (obj.visible) obj.visible = false;
-        } else {
-            if (!obj.visible) obj.visible = true;
+                if (distSq > limit) {
+                    if (obj.visible) obj.visible = false;
+                } else {
+                    if (!obj.visible) obj.visible = true;
+                }
+            });
         }
-    });
-}
             // ---- TERMINAL BUTTON ANIMATION ----
             if(terminalBtnT>0){terminalBtnT-=delta;if(terminalBtnT<=0)termBtn.position.z=0.56;}
             if(doorState==='ready_terminal'&&!terminalActivated)termLight.intensity=2.8+1.6*Math.sin(now*0.006);
