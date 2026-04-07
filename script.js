@@ -2095,11 +2095,14 @@ corridorLights.forEach(cl => {
                 if(!gameWon&&orb.position.y>0&&camPos.distanceTo(orb.position)<2.8){
                     orb.position.y=-1000;orbsCollected++;elOrbCount.innerText=orbsCollected;
                     playOrbChime();alertAllInRadius(orb.position.x,orb.position.z,20);
-                    if(orbsCollected===TOTAL_ORBS&&doorState==='closed'){
+                    if(orbsCollected===TOTAL_ORBS&&puzzlesSolved>=TOTAL_PUZZLES&&doorState==='closed'){
                         doorState='ready_terminal';
                         termScreenMat.color.setHex(0x001400);termLight.color.setHex(0x00ff44);termLight.intensity=3.5;
                         ledMat.color.setHex(0x00cc22);termBtnMat.color.setHex(0x00bb00);
                         playUISound(280,0.7,0.7,'sine');
+                    } else if(orbsCollected===TOTAL_ORBS&&puzzlesSolved<TOTAL_PUZZLES&&doorState==='closed'){
+                        termLight.color.setHex(0xff8800);
+                        termLight.intensity=1.0+0.4*Math.sin(now*0.005);
                     }
                 }
             });
