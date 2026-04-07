@@ -1716,6 +1716,14 @@ const startPos=getPos(1,1);
         document.addEventListener('keydown',e=>{
             keys[e.code]=true;
             if(e.code==='KeyE'&&gameActive&&!gameWon&&doorState==='ready_terminal'){
+// E — open nearby wall puzzle panels
+            if(e.code==='KeyE' && gameActive && !gameWon && !puzzleOpen) {
+                for (const panel of wallPanels) {
+                    if (panel.solved) continue;
+                    const dist = Math.hypot(camera.position.x-panel.worldX, camera.position.z-panel.worldZ);
+                    if (dist < 7) { openPuzzle(panel); break; }
+                }
+            }
                 if(Math.hypot(camera.position.x-TERM_WX,camera.position.z-TERM_WZ)<9){
                     terminalActivated=true;terminalBtnT=0.18;
                     termBtn.position.z=0.44; // depress button
