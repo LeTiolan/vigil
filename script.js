@@ -2107,6 +2107,19 @@ corridorLights.forEach(cl => {
 
             // Siren spin
             sirens.forEach((s,i)=>s.group.rotation.y+=delta*(i%2===0?2.2:-2.2));
+// ---- WALL PUZZLE PANEL PROMPTS + PULSE ----
+            if (gameActive && !gameWon && !puzzleOpen) {
+                let nearPanel = false;
+                wallPanels.forEach(panel => {
+                    const dist = Math.hypot(camPos.x-panel.worldX, camPos.z-panel.worldZ);
+                    // Pulse the light
+                    if (!panel.solved) {
+                        panel.light.intensity = 1.0 + 0.6*Math.sin(now*0.004 + panel.worldX);
+                    }
+                    if (!panel.solved && dist < 7) nearPanel = true;
+                });
+                elPrompt.style.display = (nearPanel && !terminalActivated) ? 'block' : elPrompt.style.display;
+            }
 
             // Terminal proximity prompt
             if(gameActive&&!gameWon&&!terminalActivated){
