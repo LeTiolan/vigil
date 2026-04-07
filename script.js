@@ -1251,6 +1251,431 @@ const startPos=getPos(1,1);
         }
 
         function alertAllInRadius(wx,wz,r){enemies.forEach(e=>{if(Math.hypot(e.position.x-wx,e.position.z-wz)<r)triggerAlert(e,false);});}
+// ================================================================
+        //  PUZZLE ENGINE
+        // ================================================================
+
+        // ---- Shared: open / close overlay ----
+        function openPuzzle(panel) {
+            if (panel.solved) return;
+            activePuzzle = panel;
+            puzzleOpen = true;
+            document.exitPointerLock();
+            elPuzzleTitle.innerText = panel.label + ' — SYSTEM OVERRIDE';
+            elPuzzleStatus.innerText = 'AWAITING INPUT';
+            elPuzzleOverlay.classList.add('active');
+            elPuzzleOverlay.style.display = 'flex';
+            if (panel.type === 'power')    initPowerPuzzle();
+            if (panel.type === 'fuse')     initFusePuzzle();
+            if (panel.type === 'sequence') initSequencePuzzle();
+            drawPuzzle();
+        }
+
+        function closePuzzle() {
+            puzzleOpen = false;
+            activePuzzle = null;
+            elPuzzleOverlay.classList.remove('active');
+            elPuzzleOverlay.style.display = 'none';
+            document.body.requestPointerLock();
+        }
+
+        function solvePuzzle(panel) {
+            panel.solved = true;
+            panel.screenMat.color.setHex(0x002210);
+            panel.stripMat.color.setHex(0x00aa44);
+            panel.light.color.setHex(0x00ff66);
+            panel.light.intensity = 2.8;
+            puzzlesSolved++;
+            playPuzzleSuccess();
+            elPuzzleStatus.innerText = `SYSTEM ONLINE — ${TOTAL_PUZZLES - puzzlesSolved} PANELS REMAINING`;
+            setTimeout(closePuzzle, 1800);
+        }
+
+        // ================================================================
+        //  PUZZLE A: POWER ROUTING
+        //  4x4 grid. Click nodes to rotate. Path must connect bottom→top.
+        // ================================================================
+        // Node shapes: 0=L, 1=T, 2=I, 3=+
+        // Connections per shape at rotation 0: exits array [top,right,bottom,left]
+        const PR_SHAPES = [
+            [0,1,1,0], // L: right+bottom
+            [1,1,1,0], // T: top+right+bottom
+            [1,0,1,0], // I: top+bottom
+            [1,1,1,1], // +: all
+        ];
+
+        function prRotateExits(exits, r) {
+            // r = 0..3 clockwise rotations
+            const e = [...exits];
+            for (let i = 0; i < r; i++) {
+                const tmp = e[3]; e[3]=e[2]; e[2]=e[1]; e[1]=e[0]; e[0]=tmp;
+            }
+            return e;
+        }
+
+        function initPowerPuzzle() {
+            prGrid = [];
+            for (let r = 0; r < PR_SIZE; r++) {
+                prGrid[r] = [];
+                for (let c = 0; c < PR_SIZE; c++) {
+                    prGrid[r][c] = {
+                        shape: Math.floor(Math.random() * 4),
+                        rot: Math.floor(Math.random() * 4),
+                        powered: false
+                    };
+                }
+            }
+            // Guarantee a solvable path exists by carving a random path
+            let pr = PR_SIZE-1, pc = Math.floor(Math.random()*PR_SIZE);
+            prGrid[pr][pc].shape = 2; prGrid[pr][pc].rot = 0; // I vertical at bottom entry
+            while (pr > 0) {
+                const go = Math.random() > 0.4 ? 'up' : (pc>0?'left':'right');
+                if (go==='up') pr--;
+                else if (go==='left') pc=Math.max(0,pc-1);
+                else pc=Math.min(PR_SIZE-1,pc+1);
+                prGrid[pr][pc].shape = 2; prGrid[pr][pc].rot = 0;
+            }
+            prCheckPower();
+        }
+
+        function prCheckPower() {
+            // Reset all powered
+            for (let r=0;r<PR_SIZE;r++) for(let c=0;c<PR_SIZE;c++) prGrid[r][c].powered=false;
+            // BFS from bottom row (power sources)
+            const q = [];
+            for (let c=0;c<PR_SIZE;c++) { prGrid[PR_SIZE-1][c].powered=true; q.push([PR_SIZE-1,c]); }
+            while (q.length) {
+                const [r,c] = q.shift();
+                const node = prGrid[r][c];
+                const exits = prRotateExits(PR_SHAPES[node.shape], node.rot);
+                // Check each direction: [top,right,bottom,left]
+                const dirs = [[-1,0],[0,1],[1,0],[0,-1]];
+                exits.forEach((open,d)=>{
+                    if (!open) return;
+                    const [nr,nc] = [r+dirs[d][0], c+dirs[d][1]];
+                    if (nr<0||nr>=PR_SIZE||nc<0||nc>=PR_SIZE) return;
+                    if (prGrid[nr][nc].powered) return;
+                    // Neighbour must have its facing exit open toward us
+                    const oppD = (d+2)%4;
+                    const nExits = prRotateExits(PR_SHAPES[prGrid[nr][nc].shape], prGrid[nr][nc].rot);
+                    if (nExits[oppD]) {
+                        prGrid[nr][nc].powered = true; q.push([nr,nc]);
+                    }
+                });
+            }
+        }
+
+        function prIsSolved() {
+            for (let c=0;c<PR_SIZE;c++) if (prGrid[0][c].powered) return true;
+            return false;
+        }
+
+        function drawPowerPuzzle() {
+            const W=480, H=400, pad=30, cellW=(W-pad*2)/PR_SIZE, cellH=(H-pad*2-40)/PR_SIZE;
+            pCtx.fillStyle='#050805'; pCtx.fillRect(0,0,W,H);
+            // Title
+            pCtx.fillStyle='#406040'; pCtx.font='bold 10px Courier New';
+            pCtx.fillText('POWER IN ▼ (rotate nodes to connect) ▲ POWER OUT',pad,20);
+
+            for (let r=0;r<PR_SIZE;r++) for(let c=0;c<PR_SIZE;c++){
+                const node=prGrid[r][c];
+                const x=pad+c*cellW+cellW/2, y=pad+40+r*cellH+cellH/2;
+                const exits=prRotateExits(PR_SHAPES[node.shape],node.rot);
+                const color = node.powered ? '#00ffaa' : '#1a3a1a';
+                const glow  = node.powered ? '#00ff88' : '#0a1a0a';
+
+                // Octagon node
+                pCtx.save(); pCtx.translate(x,y);
+                pCtx.beginPath();
+                for(let i=0;i<8;i++){const a=(i/8)*Math.PI*2-Math.PI/8;pCtx.lineTo(Math.cos(a)*18,Math.sin(a)*18);}
+                pCtx.closePath();
+                pCtx.fillStyle=glow; pCtx.fill();
+                pCtx.strokeStyle=color; pCtx.lineWidth=node.powered?2:1; pCtx.stroke();
+
+                // Pipe exits — [top,right,bottom,left]
+                pCtx.strokeStyle=color; pCtx.lineWidth=node.powered?5:3;
+                if(exits[0]){pCtx.beginPath();pCtx.moveTo(0,-10);pCtx.lineTo(0,-cellH/2+2);pCtx.stroke();}
+                if(exits[1]){pCtx.beginPath();pCtx.moveTo(10,0);pCtx.lineTo(cellW/2-2,0);pCtx.stroke();}
+                if(exits[2]){pCtx.beginPath();pCtx.moveTo(0,10);pCtx.lineTo(0,cellH/2-2);pCtx.stroke();}
+                if(exits[3]){pCtx.beginPath();pCtx.moveTo(-10,0);pCtx.lineTo(-cellW/2+2,0);pCtx.stroke();}
+
+                // Greeble: small resistor square
+                pCtx.fillStyle='#0a180a'; pCtx.fillRect(-5,-5,10,10);
+                pCtx.strokeStyle=color; pCtx.lineWidth=1; pCtx.strokeRect(-5,-5,10,10);
+                pCtx.restore();
+            }
+            // Power source indicator (bottom)
+            pCtx.fillStyle='#00ffaa'; pCtx.font='9px Courier New';
+            pCtx.fillText('⚡ POWER IN', pad, H-10);
+            pCtx.fillText('⚡ POWER OUT', W-pad-75, 38);
+        }
+
+        // ================================================================
+        //  PUZZLE B: FUSE BOX (Sliding puzzle)
+        //  4x4 grid. Slide fuses. Master fuse must reach [0][3].
+        // ================================================================
+        function initFusePuzzle() {
+            // Solved state: master at top-right, others fill rest
+            fuseGrid = [[2,1,1,0],[1,1,1,1],[1,1,1,1],[1,1,1,1]];
+            fuseEmpty = {r:0,c:3};
+            // Shuffle by doing 80 valid random moves
+            for (let i=0;i<80;i++) {
+                const moves=[];
+                if(fuseEmpty.r>0) moves.push({r:fuseEmpty.r-1,c:fuseEmpty.c});
+                if(fuseEmpty.r<3) moves.push({r:fuseEmpty.r+1,c:fuseEmpty.c});
+                if(fuseEmpty.c>0) moves.push({r:fuseEmpty.r,c:fuseEmpty.c-1});
+                if(fuseEmpty.c<3) moves.push({r:fuseEmpty.r,c:fuseEmpty.c+1});
+                const m=moves[Math.floor(Math.random()*moves.length)];
+                fuseGrid[fuseEmpty.r][fuseEmpty.c]=fuseGrid[m.r][m.c];
+                fuseGrid[m.r][m.c]=0; fuseEmpty={r:m.r,c:m.c};
+            }
+        }
+
+        function fuseSlide(r,c) {
+            // Can only slide into empty slot
+            if(Math.abs(r-fuseEmpty.r)+Math.abs(c-fuseEmpty.c)!==1) return;
+            if(fuseGrid[r][c]===0) return;
+            fuseGrid[fuseEmpty.r][fuseEmpty.c]=fuseGrid[r][c];
+            fuseGrid[r][c]=0; fuseEmpty={r,c};
+            playPuzzleTick();
+        }
+
+        function fuseIsSolved() {
+            return fuseGrid[0][3]===2;
+        }
+
+        function drawFusePuzzle() {
+            const W=480,H=400,pad=40,cellW=(W-pad*2)/4,cellH=(H-pad*2-20)/4;
+            pCtx.fillStyle='#060806'; pCtx.fillRect(0,0,W,H);
+            pCtx.fillStyle='#406040'; pCtx.font='bold 10px Courier New';
+            pCtx.fillText('FUSE BOX — SLIDE MASTER FUSE [M] TO TOP-RIGHT SLOT',pad,22);
+
+            // Grid background
+            pCtx.fillStyle='#0a100a';
+            pCtx.fillRect(pad,pad+8,W-pad*2,H-pad*2-8);
+
+            for(let r=0;r<4;r++) for(let c=0;c<4;c++){
+                const val=fuseGrid[r][c];
+                const x=pad+c*cellW+8, y=pad+8+r*cellH+8, fw=cellW-16, fh=cellH-16;
+                if(val===0){
+                    // Empty slot
+                    pCtx.strokeStyle='#1a2a1a'; pCtx.lineWidth=1;
+                    pCtx.strokeRect(x,y,fw,fh);
+                    continue;
+                }
+                const isMaster=(val===2);
+                // Fuse housing (rounded rect)
+                pCtx.fillStyle=isMaster?'#2a2200':'#141814';
+                pCtx.beginPath();
+                pCtx.roundRect(x,y,fw,fh,4);
+                pCtx.fill();
+                pCtx.strokeStyle=isMaster?'#ffcc00':'#304030'; pCtx.lineWidth=isMaster?2:1;
+                pCtx.stroke();
+
+                // Fuse hex body (use hexagonal outline for PSX look)
+                const cx2=x+fw/2, cy2=y+fh/2, hr=Math.min(fw,fh)*0.28;
+                pCtx.beginPath();
+                for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;pCtx.lineTo(cx2+Math.cos(a)*hr,cy2+Math.sin(a)*hr);}
+                pCtx.closePath();
+                pCtx.fillStyle=isMaster?'#997700':'#1a2a1a'; pCtx.fill();
+                pCtx.strokeStyle=isMaster?'#ffdd00':'#406040'; pCtx.lineWidth=isMaster?2:1; pCtx.stroke();
+
+                // Label
+                pCtx.fillStyle=isMaster?'#ffee88':'#508050';
+                pCtx.font=`bold ${isMaster?11:9}px Courier New`;
+                pCtx.textAlign='center';
+                pCtx.fillText(isMaster?'M':r*4+c+1,cx2,cy2+4);
+                pCtx.textAlign='left';
+
+                // "VOLTAGE-HIGH" micro label
+                if(isMaster){
+                    pCtx.fillStyle='#664400'; pCtx.font='7px Courier New';
+                    pCtx.textAlign='center'; pCtx.fillText('VOLTAGE-HIGH',cx2,y+fh-4); pCtx.textAlign='left';
+                }
+            }
+            // Target indicator
+            pCtx.strokeStyle='#ffcc00'; pCtx.lineWidth=2; pCtx.setLineDash([3,3]);
+            pCtx.strokeRect(pad+(3)*cellW+8,pad+8+8,cellW-16,cellH-16);
+            pCtx.setLineDash([]);
+            pCtx.fillStyle='#664400'; pCtx.font='8px Courier New';
+            pCtx.fillText('TARGET',pad+(3)*cellW+10,pad+8+cellH-4);
+        }
+
+        // ================================================================
+        //  PUZZLE C: SEQUENCE OVERRIDE (Simon Says)
+        //  4 buttons, sequence grows to 4. Click in correct order.
+        // ================================================================
+        const SO_COLORS = [
+            {on:'#ff3333',off:'#3a0808',label:'A'},
+            {on:'#33ff66',off:'#083a12',label:'B'},
+            {on:'#3366ff',off:'#080c3a',label:'C'},
+            {on:'#ffcc00',off:'#3a2e00',label:'D'},
+        ];
+        const SO_BTN_POS = [{x:100,y:120},{x:260,y:120},{x:100,y:260},{x:260,y:260}];
+        const SO_BTN_SIZE = 90;
+
+        function initSequencePuzzle() {
+            soSequence = [Math.floor(Math.random()*4), Math.floor(Math.random()*4),
+                          Math.floor(Math.random()*4), Math.floor(Math.random()*4)];
+            soPlayerSeq = []; soRound = 0; soState = 'watching';
+            soFlashing = []; soFlashTimer = 0;
+            startSoShow();
+        }
+
+        function startSoShow() {
+            soState = 'watching';
+            soPlayerSeq = [];
+            // Build flash queue for rounds 0..soRound
+            soFlashing = [];
+            for (let i=0;i<=soRound;i++) {
+                soFlashing.push({btnIdx:soSequence[i], timer:0.45, gap:0.2, phase:'on'});
+            }
+            soFlashTimer = 0;
+            elPuzzleStatus.innerText = `OBSERVE SEQUENCE — ROUND ${soRound+1} / ${soSequence.length}`;
+        }
+
+        function soClickBtn(btnIdx) {
+            if(soState!=='input') return;
+            soPlayerSeq.push(btnIdx);
+            playPuzzleTick();
+            // Flash the pressed button briefly
+            soFlashing.push({btnIdx, timer:0.12, phase:'flash', gap:0});
+
+            // Check correctness
+            const pos = soPlayerSeq.length-1;
+            if (soPlayerSeq[pos] !== soSequence[pos]) {
+                soState='failed'; playPuzzleFail();
+                elPuzzleStatus.innerText='INCORRECT — REPLAYING SEQUENCE';
+                setTimeout(()=>startSoShow(), 1400);
+                return;
+            }
+            if (soPlayerSeq.length > soRound) {
+                // Completed this round
+                soRound++;
+                if (soRound >= soSequence.length) {
+                    // All done
+                    solvePuzzle(activePuzzle);
+                } else {
+                    setTimeout(()=>startSoShow(), 600);
+                }
+            }
+        }
+
+        function drawSequencePuzzle(delta) {
+            const W=480,H=400;
+            pCtx.fillStyle='#050508'; pCtx.fillRect(0,0,W,H);
+            pCtx.fillStyle='#404060'; pCtx.font='bold 10px Courier New';
+            pCtx.fillText('SEQUENCE OVERRIDE — MEMORIZE & REPEAT',30,22);
+
+            // Animate flash queue
+            if(soFlashing.length>0 && soState==='watching') {
+                const f=soFlashing[0];
+                if(f.phase==='on'){
+                    f.timer-=(delta||0.016);
+                    if(f.timer<=0){f.phase='off';f.timer=f.gap;}
+                } else {
+                    f.timer-=(delta||0.016);
+                    if(f.timer<=0){ soFlashing.shift(); if(soFlashing.length===0)soState='input'; }
+                }
+            }
+
+            // Draw 4 buttons
+            SO_BTN_POS.forEach((pos,i)=>{
+                const isFlashing = soFlashing.length>0 && soFlashing[0].phase==='on' && soFlashing[0].btnIdx===i;
+                const col = SO_COLORS[i];
+                const active = isFlashing;
+
+                // Button shadow/base
+                pCtx.fillStyle='#0a0a0c';
+                pCtx.fillRect(pos.x-2,pos.y-2,SO_BTN_SIZE+4,SO_BTN_SIZE+4);
+
+                // Button face (depressed if active)
+                const depY = active ? 3 : 0;
+                pCtx.fillStyle = active ? col.on : col.off;
+                pCtx.fillRect(pos.x, pos.y+depY, SO_BTN_SIZE, SO_BTN_SIZE-depY);
+
+                // Button label
+                pCtx.fillStyle = active ? '#ffffff' : col.on+'88';
+                pCtx.font = `bold 22px Courier New`;
+                pCtx.textAlign='center';
+                pCtx.fillText(col.label, pos.x+SO_BTN_SIZE/2, pos.y+SO_BTN_SIZE/2+depY+8);
+                pCtx.textAlign='left';
+
+                // Emissive glow border
+                if(active){
+                    pCtx.shadowColor=col.on; pCtx.shadowBlur=20;
+                    pCtx.strokeStyle=col.on; pCtx.lineWidth=2;
+                    pCtx.strokeRect(pos.x,pos.y+depY,SO_BTN_SIZE,SO_BTN_SIZE-depY);
+                    pCtx.shadowBlur=0;
+                }
+            });
+
+            // Dithered gradient hint — dots pattern across all buttons
+            pCtx.fillStyle='rgba(255,255,255,0.018)';
+            for(let dx=0;dx<W;dx+=4) for(let dy=0;dy<H;dy+=4) if((dx+dy)%8===0) pCtx.fillRect(dx,dy,2,2);
+
+            // Round indicator
+            pCtx.fillStyle='#304050'; pCtx.font='9px Courier New';
+            for(let i=0;i<soSequence.length;i++){
+                pCtx.fillStyle = i<soRound ? '#00ff88' : i===soRound?'#ffffff':'#202020';
+                pCtx.fillRect(30+i*24, H-24, 18, 10);
+            }
+        }
+
+        // ================================================================
+        //  PUZZLE DRAW DISPATCHER
+        // ================================================================
+        let _pLastT = 0;
+        function drawPuzzle(nowT) {
+            if (!puzzleOpen || !activePuzzle) return;
+            const dt = nowT ? (nowT-_pLastT)/1000 : 0.016; _pLastT=nowT||_pLastT;
+            if (activePuzzle.type==='power')    drawPowerPuzzle();
+            if (activePuzzle.type==='fuse')     drawFusePuzzle();
+            if (activePuzzle.type==='sequence') drawSequencePuzzle(dt);
+            if (puzzleOpen) requestAnimationFrame(drawPuzzle);
+        }
+
+        // ================================================================
+        //  PUZZLE CANVAS CLICK HANDLER
+        // ================================================================
+        elPuzzleCanvas.addEventListener('click', (e)=>{
+            if (!puzzleOpen || !activePuzzle) return;
+            const rect = elPuzzleCanvas.getBoundingClientRect();
+            const mx = (e.clientX-rect.left)*(480/rect.width);
+            const my = (e.clientY-rect.top)*(400/rect.height);
+
+            if (activePuzzle.type==='power') {
+                const pad=30,cellW=(480-pad*2)/PR_SIZE,cellH=(400-pad*2-40)/PR_SIZE;
+                const c=Math.floor((mx-pad)/cellW), r=Math.floor((my-pad-40)/cellH);
+                if(r>=0&&r<PR_SIZE&&c>=0&&c<PR_SIZE){
+                    prGrid[r][c].rot=(prGrid[r][c].rot+1)%4;
+                    playPuzzleTick(); prCheckPower();
+                    if(prIsSolved()) solvePuzzle(activePuzzle);
+                    else drawPowerPuzzle();
+                }
+            }
+            if (activePuzzle.type==='fuse') {
+                const pad=40,cellW=(480-pad*2)/4,cellH=(400-pad*2-20)/4;
+                const c=Math.floor((mx-pad)/cellW), r=Math.floor((my-pad-8)/cellH);
+                if(r>=0&&r<4&&c>=0&&c<4){
+                    fuseSlide(r,c);
+                    if(fuseIsSolved()) solvePuzzle(activePuzzle);
+                    else drawFusePuzzle();
+                }
+            }
+            if (activePuzzle.type==='sequence' && soState==='input') {
+                SO_BTN_POS.forEach((pos,i)=>{
+                    if(mx>=pos.x&&mx<=pos.x+SO_BTN_SIZE&&my>=pos.y&&my<=pos.y+SO_BTN_SIZE){
+                        soClickBtn(i);
+                    }
+                });
+            }
+        });
+
+        // Escape to close puzzle without solving
+        document.addEventListener('keydown', (e)=>{
+            if (e.code==='Escape' && puzzleOpen) { closePuzzle(); }
+        }, {capture:true});
 
         // ================================================================
         //  MENU + INPUT
