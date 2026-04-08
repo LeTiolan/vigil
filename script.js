@@ -2152,13 +2152,20 @@ corridorLights.forEach(cl => {
                     }
                     if (!panel.solved && dist < 7) nearPanel = true;
                 });
-                elPrompt.style.display = (nearPanel && !terminalActivated) ? 'block' : 'none';
+      if (nearPanel && !terminalActivated) {
+                    elPrompt.style.display = 'block';
+                    document.getElementById('prompt-text').innerText = 'OPEN PANEL';
+                } else if (!nearPanel) {
+                    elPrompt.style.display = 'none';
+                }
             }
 
             // Terminal proximity prompt
             if(gameActive&&!gameWon&&!terminalActivated){
                 const dt=Math.hypot(camPos.x-TERM_WX,camPos.z-TERM_WZ);
-                elPrompt.style.display=(doorState==='ready_terminal'&&dt<9)?'block':'none';
+ const showTerm = doorState==='ready_terminal' && dt < 9;
+                elPrompt.style.display = showTerm ? 'block' : 'none';
+                if (showTerm) document.getElementById('prompt-text').innerText = 'ACTIVATE TERMINAL';
             }
 
             // ---- DOOR ANIMATION ----
