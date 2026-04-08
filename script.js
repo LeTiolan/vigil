@@ -2119,13 +2119,12 @@ corridorLights.forEach(cl => {
                 let nearPanel = false;
                 wallPanels.forEach(panel => {
                     const dist = Math.hypot(camPos.x-panel.worldX, camPos.z-panel.worldZ);
-                    // Pulse the light
                     if (!panel.solved) {
                         panel.light.intensity = 1.0 + 0.6*Math.sin(now*0.004 + panel.worldX);
                     }
                     if (!panel.solved && dist < 7) nearPanel = true;
                 });
-                elPrompt.style.display = (nearPanel && !terminalActivated) ? 'block' : elPrompt.style.display;
+                elPrompt.style.display = (nearPanel && !terminalActivated) ? 'block' : 'none';
             }
 
             // Terminal proximity prompt
