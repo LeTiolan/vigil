@@ -973,14 +973,15 @@ const startPos=getPos(1,1);
         //  WALL PUZZLE PANELS — 3 physical panels, wall-anchored
         //  Types: 'power' | 'fuse' | 'sequence'  (frequency = main terminal)
         // ================================================================
-        const PUZZLE_TYPES = ['power', 'fuse', 'sequence'];
+     const PUZZLE_TYPES = ['power', 'fuse', 'sequence', 'power', 'fuse', 'sequence'];
 
-        // Search for 3 distinct open cells adjacent to walls, spread across the maze.
-        // We search from 3 different seed positions for spread.
         const panelSearchSeeds = [
-            {sx: Math.floor(MAZE_SIZE*0.25), sz: Math.floor(MAZE_SIZE*0.25)},
-            {sx: Math.floor(MAZE_SIZE*0.75), sz: Math.floor(MAZE_SIZE*0.25)},
-            {sx: Math.floor(MAZE_SIZE*0.5),  sz: Math.floor(MAZE_SIZE*0.5)},
+            {sx: Math.floor(MAZE_SIZE*0.2),  sz: Math.floor(MAZE_SIZE*0.2)},
+            {sx: Math.floor(MAZE_SIZE*0.8),  sz: Math.floor(MAZE_SIZE*0.2)},
+            {sx: Math.floor(MAZE_SIZE*0.2),  sz: Math.floor(MAZE_SIZE*0.8)},
+            {sx: Math.floor(MAZE_SIZE*0.8),  sz: Math.floor(MAZE_SIZE*0.8)},
+            {sx: Math.floor(MAZE_SIZE*0.5),  sz: Math.floor(MAZE_SIZE*0.3)},
+            {sx: Math.floor(MAZE_SIZE*0.5),  sz: Math.floor(MAZE_SIZE*0.7)},
         ];
         const usedPanelCells = new Set(); // prevent overlap with each other
 
