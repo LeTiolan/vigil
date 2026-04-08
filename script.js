@@ -1257,19 +1257,38 @@ const startPos=getPos(1,1);
         // ================================================================
 
         // ---- Shared: open / close overlay ----
+   const BADGE_LABELS = {power:'PWR', fuse:'FUSE', sequence:'SEQ'};
+        const TYPE_LABELS   = {power:'PWR-ROUTE', fuse:'FUSE-BOX', sequence:'SEQ-LOCK'};
+
         function openPuzzle(panel) {
             if (panel.solved) return;
             activePuzzle = panel;
             puzzleOpen = true;
             document.exitPointerLock();
-            elPuzzleTitle.innerText = panel.label + ' — SYSTEM OVERRIDE';
+
+            // Set the data-ptype on the overlay so CSS themes itself
+            elPuzzleOverlay.setAttribute('data-ptype', panel.type);
+
+            // Update header text
+            document.getElementById('puzzle-type-badge').innerText = BADGE_LABELS[panel.type] || 'SYS';
+            elPuzzleTitle.innerText = TYPE_LABELS[panel.type] || panel.label;
             elPuzzleStatus.innerText = 'AWAITING INPUT';
-            elPuzzleOverlay.classList.add('active');
+
+            // Reset animation so it plays fresh every open
+            const box = document.getElementById('puzzle-box');
+            box.style.animation = 'none';
+            void box.offsetWidth; // reflow
+            box.style.animation = '';
+
+            // Show overlay
             elPuzzleOverlay.style.display = 'flex';
+            elPuzzleOverlay.classList.add('active');
+
             if (panel.type === 'power')    initPowerPuzzle();
             if (panel.type === 'fuse')     initFusePuzzle();
             if (panel.type === 'sequence') initSequencePuzzle();
-          requestAnimationFrame(drawPuzzle);
+
+            requestAnimationFrame(drawPuzzleLoop);
         }
 
         function closePuzzle() {
