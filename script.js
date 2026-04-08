@@ -1268,7 +1268,7 @@ const startPos=getPos(1,1);
             if (panel.type === 'power')    initPowerPuzzle();
             if (panel.type === 'fuse')     initFusePuzzle();
             if (panel.type === 'sequence') initSequencePuzzle();
-            drawPuzzle();
+          requestAnimationFrame(drawPuzzle);
         }
 
         function closePuzzle() {
