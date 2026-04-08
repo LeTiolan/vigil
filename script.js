@@ -1715,18 +1715,21 @@ const startPos=getPos(1,1);
 
         document.addEventListener('keydown',e=>{
             keys[e.code]=true;
-            if(e.code==='KeyE'&&gameActive&&!gameWon&&doorState==='ready_terminal'){
-// E — open nearby wall puzzle panels
-            if(e.code==='KeyE' && gameActive && !gameWon && !puzzleOpen) {
-                for (const panel of wallPanels) {
-                    if (panel.solved) continue;
-                    const dist = Math.hypot(camera.position.x-panel.worldX, camera.position.z-panel.worldZ);
-                    if (dist < 7) { openPuzzle(panel); break; }
+
+            // --- Wall puzzle panels: E opens nearest unsolved panel ---
+            if(e.code==='KeyE'&&gameActive&&!gameWon&&!puzzleOpen){
+                for(const panel of wallPanels){
+                    if(panel.solved)continue;
+                    const dist=Math.hypot(camera.position.x-panel.worldX,camera.position.z-panel.worldZ);
+                    if(dist<7){openPuzzle(panel);break;}
                 }
             }
+
+            // --- Exit terminal: E activates it when all objectives done ---
+            if(e.code==='KeyE'&&gameActive&&!gameWon&&doorState==='ready_terminal'){
                 if(Math.hypot(camera.position.x-TERM_WX,camera.position.z-TERM_WZ)<9){
                     terminalActivated=true;terminalBtnT=0.18;
-                    termBtn.position.z=0.44; // depress button
+                    termBtn.position.z=0.44;
                     termScreenMat.color.setHex(0xff4400);termLight.color.setHex(0xff6600);termLight.intensity=4;
                     ledMat.color.setHex(0xff4400);playTerminalClick();
                     setTimeout(()=>{doorState='valves_pressure';initIndustrialAudio();sirens.forEach(s=>s.light.intensity=45);klaxonGain.gain.setTargetAtTime(0.015,audioCtx.currentTime,0.1);hissGain.gain.setTargetAtTime(0.1,audioCtx.currentTime,0.1);},700);
@@ -1734,6 +1737,7 @@ const startPos=getPos(1,1);
             }
         });
         document.addEventListener('keyup',e=>keys[e.code]=false);
+       
 
         // ================================================================
         //  UPDATE LOOP
