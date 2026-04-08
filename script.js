@@ -1299,7 +1299,7 @@ const startPos=getPos(1,1);
             document.body.requestPointerLock();
         }
 
-        function solvePuzzle(panel) {
+    function solvePuzzle(panel) {
             panel.solved = true;
             panel.screenMat.color.setHex(0x002210);
             panel.stripMat.color.setHex(0x00aa44);
@@ -1307,7 +1307,15 @@ const startPos=getPos(1,1);
             panel.light.intensity = 2.8;
             puzzlesSolved++;
             playPuzzleSuccess();
-            elPuzzleStatus.innerText = `SYSTEM ONLINE — ${TOTAL_PUZZLES - puzzlesSolved} PANELS REMAINING`;
+            elPuzzleStatus.innerText = 'SYSTEM ONLINE — ' + (TOTAL_PUZZLES - puzzlesSolved) + ' PANELS REMAINING';
+
+            // Mark the correct tracker slot as solved
+            const slotIndex = wallPanels.indexOf(panel);
+            if (slotIndex >= 0) {
+                const slot = document.getElementById('tslot-' + slotIndex);
+                if (slot) slot.classList.add('solved');
+            }
+
             setTimeout(closePuzzle, 1800);
         }
 
