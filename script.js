@@ -125,7 +125,7 @@
         //  PUZZLE STATE
         // ================================================================
         // How many wall puzzles the player must solve (3 panels)
-        const TOTAL_PUZZLES = 3;
+        const TOTAL_PUZZLES = 6;
         let puzzlesSolved = 0;      // increments on each panel solve
         let activePuzzle = null;    // {type, panelObj, solved}
         let puzzleOpen = false;
