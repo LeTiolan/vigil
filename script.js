@@ -183,6 +183,7 @@
         const elPuzzleTitle   = document.getElementById('puzzle-title');
         const elPuzzleStatus  = document.getElementById('puzzle-status');
         const pCtx = elPuzzleCanvas.getContext('2d');
+const elPromptText = document.getElementById('prompt-text');
 
         // ================================================================
         //  SCENE — PSX style: low pixel ratio, nearest filter, no AA
@@ -1793,16 +1794,15 @@ const startPos=getPos(1,1);
         // --- NEW: Bulletproof F Key Toggle (Smooth Intensity Version) ---
 if(keys['KeyF'] && !window.fKeyWasPressed) {
     flashlightOn = !flashlightOn;
-    
-    // FIXED: Use intensity instead of visibility to prevent lag spikes
     flash1.intensity = flashlightOn ? 150 : 0;
     flash2.intensity = flashlightOn ? 30 : 0;
-    
     if(typeof playFlashlightClick === 'function') playFlashlightClick();
     window.fKeyWasPressed = true;
+    // Update the HUD indicator
+    const fi = document.getElementById('flashlight-indicator');
+    if (fi) { flashlightOn ? fi.classList.remove('off') : fi.classList.add('off'); }
 } else if (!keys['KeyF']) {
-    window.fKeyWasPressed = false;
-}
+    window.fKeyWasPressed
 
                 if(isSprinting){player.stamina-=0.4;if(player.stamina<=0)player.isExhausted=true;}
                 else{player.stamina=Math.min(MAX_STAMINA,player.stamina+0.9);if(player.stamina>=MAX_STAMINA*0.25)player.isExhausted=false;}
