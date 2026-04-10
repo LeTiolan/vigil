@@ -1082,7 +1082,7 @@ const startPos=getPos(1,1);
         }
 
         // Place all 3 panels
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 6; i++) {
             const seed = panelSearchSeeds[i];
             const cell = findWallCell(seed.sx, seed.sz);
             if (cell) {
@@ -1289,7 +1289,7 @@ const startPos=getPos(1,1);
             if (panel.type === 'fuse')     initFusePuzzle();
             if (panel.type === 'sequence') initSequencePuzzle();
 
-            requestAnimationFrame(drawPuzzleLoop);
+            requestAnimationFrame(drawPuzzle);
         }
 
         function closePuzzle() {
@@ -1802,9 +1802,11 @@ if(keys['KeyF'] && !window.fKeyWasPressed) {
     const fi = document.getElementById('flashlight-indicator');
     if (fi) { flashlightOn ? fi.classList.remove('off') : fi.classList.add('off'); }
 } else if (!keys['KeyF']) {
-    window.fKeyWasPressed
+    window.fKeyWasPressed = false;
+}
 
-                if(isSprinting){player.stamina-=0.4;if(player.stamina<=0)player.isExhausted=true;}
+                if(isSprinting){player.stamina-=0.4;
+                                if(player.stamina<=0)player.isExhausted=true;}
                 else{player.stamina=Math.min(MAX_STAMINA,player.stamina+0.9);if(player.stamina>=MAX_STAMINA*0.25)player.isExhausted=false;}
                 const stPct=(player.stamina/MAX_STAMINA)*100;
                 elStBar.style.height=stPct+'%';
