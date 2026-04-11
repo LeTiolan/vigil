@@ -771,228 +771,276 @@ function playPuzzleTick() {
         }
 const startPos=getPos(1,1);
         camera.position.set(startPos.x,player.height,startPos.z);camera.rotation.set(0,yaw,0);
-        // ================================================================
-        let doorState='closed';
+
+           let doorState='closed';
         const doorWP=getPos(exitGridX,exitGridZ);
         const doorGroup=new THREE.Group();
         doorGroup.position.set(doorWP.x,0,doorWP.z);
 
-        // All door geometry constants
-        // FH = frame height, FZ = how far in front (negative = toward player)
-        // PW = half-width of each door panel, DZ = panel depth offset
-        const FH=16, FZ=-2.2, PW=4.8, DZ=0.6;
+        // Door geometry: FH=frame height, FAR=distance in front toward player
+        // PW=panel half-width. NOTHING is registered solid below y=0.5.
+        const FH=17, FAR=-2.0, PW=5.0;
 
-        // ── FRAME: Two heavy I-beam pillars + top lintel ──────────────────
-        // NOTE: Nothing is registered as solid at floor level.
-        // Pillars start at y=0 but their hitbox starts at y=0 — player
-        // radius of 0.8 means they physically can't enter the pillar.
-        const mkIPillar=(xs)=>{
-            const g=new THREE.Group();
-            g.position.set(xs*6.8, FH/2, FZ);
-            // Vertical web
-            g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5,FH,2.0),matRusty)));
-            // Top flange
-            const tF=new THREE.Mesh(new THREE.BoxGeometry(3.4,0.7,2.4),matRusty); tF.position.y=FH/2-0.35; g.add(tF);
-            // Mid flanges (two of them for visual bulk)
-            const mF1=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.45,2.0),matRusty); mF1.position.y=FH*0.25; g.add(mF1);
-            const mF2=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.45,2.0),matRusty); mF2.position.y=-FH*0.1; g.add(mF2);
-            // Gusset plates
-            const gp=new THREE.Mesh(new THREE.BoxGeometry(0.6,2.8,2.0),matDarkMetal); gp.position.y=FH/2-2.2; g.add(gp);
-            // Bolt caps on flange faces (3 per flange)
-            for(const by of[FH/2-0.35, FH*0.25, -FH*0.1]) {
-                for(const bx of[-1.1,0,1.1]) {
-                    const bolt=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.15,8),matChrome);
-                    bolt.rotation.x=Math.PI/2; bolt.position.set(bx,by,1.1); g.add(bolt);
+        // New door sound engine — all oscillator-based, no old variables needed
+        let doorAudio={ctx:audioCtx, klaxonOsc:null, klaxonGain:null,
+                       grindOsc:null, grindGain:null, rumbleOsc:null, rumbleGain:null,
+                       steamSrc:null, steamGain:null, boltOsc:null, boltGain:null};
+
+        function initDoorAudio(){
+            const a=doorAudio; a.ctx=audioCtx; resume();
+            // Klaxon — warbling triangle wave
+            a.klaxonOsc=a.ctx.createOscillator(); a.klaxonOsc.type='triangle'; a.klaxonOsc.frequency.value=440;
+            const klaxLFO=a.ctx.createOscillator(); klaxLFO.frequency.value=3;
+            const klaxMod=a.ctx.createGain(); klaxMod.gain.value=120;
+            klaxLFO.connect(klaxMod); klaxMod.connect(a.klaxonOsc.frequency); klaxLFO.start();
+            a.klaxonGain=a.ctx.createGain(); a.klaxonGain.gain.value=0;
+            a.klaxonOsc.connect(a.klaxonGain); a.klaxonGain.connect(a.ctx.destination); a.klaxonOsc.start();
+            // Gear grind — sawtooth with bandpass
+            a.grindOsc=a.ctx.createOscillator(); a.grindOsc.type='sawtooth'; a.grindOsc.frequency.value=38;
+            const gbp=a.ctx.createBiquadFilter(); gbp.type='bandpass'; gbp.frequency.value=180; gbp.Q.value=2;
+            a.grindGain=a.ctx.createGain(); a.grindGain.gain.value=0;
+            a.grindOsc.connect(gbp); gbp.connect(a.grindGain); a.grindGain.connect(a.ctx.destination); a.grindOsc.start();
+            // Deep rumble — very low square wave
+            a.rumbleOsc=a.ctx.createOscillator(); a.rumbleOsc.type='square'; a.rumbleOsc.frequency.value=22;
+            const rlp=a.ctx.createBiquadFilter(); rlp.type='lowpass'; rlp.frequency.value=80;
+            a.rumbleGain=a.ctx.createGain(); a.rumbleGain.value=0;
+            a.rumbleOsc.connect(rlp); rlp.connect(a.rumbleGain); a.rumbleGain.connect(a.ctx.destination); a.rumbleOsc.start();
+            // Steam hiss — white noise highpass
+            const nBuf=a.ctx.createBuffer(1,a.ctx.sampleRate*2,a.ctx.sampleRate);
+            const nd=nBuf.getChannelData(0); for(let i=0;i<nd.length;i++)nd[i]=Math.random()*2-1;
+            a.steamSrc=a.ctx.createBufferSource(); a.steamSrc.buffer=nBuf; a.steamSrc.loop=true;
+            const shp=a.ctx.createBiquadFilter(); shp.type='highpass'; shp.frequency.value=1200;
+            a.steamGain=a.ctx.createGain(); a.steamGain.gain.value=0;
+            a.steamSrc.connect(shp); shp.connect(a.steamGain); a.steamGain.connect(a.ctx.destination); a.steamSrc.start();
+            // Bolt clang — sawtooth burst played on demand via function
+            a.boltOsc=a.ctx.createOscillator(); a.boltOsc.type='sawtooth'; a.boltOsc.frequency.value=95;
+            a.boltGain=a.ctx.createGain(); a.boltGain.gain.value=0;
+            a.boltOsc.connect(a.boltGain); a.boltGain.connect(a.ctx.destination); a.boltOsc.start();
+        }
+
+        function doorSnd(which,vol){
+            const a=doorAudio; if(!a.klaxonGain)return;
+            const t=a.ctx.currentTime;
+            const set=(g,v)=>{if(g)g.gain.setTargetAtTime(v,t,0.12);};
+            if(which==='klaxon') set(a.klaxonGain,vol);
+            if(which==='grind')  set(a.grindGain,vol);
+            if(which==='rumble') {if(a.rumbleGain)a.rumbleGain.gain.setTargetAtTime(vol,t,0.12);}
+            if(which==='steam')  set(a.steamGain,vol);
+            if(which==='bolt'){
+                if(a.boltGain){
+                    a.boltGain.gain.setValueAtTime(vol,t);
+                    a.boltGain.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+                    a.boltOsc.frequency.setValueAtTime(95,t);
+                    a.boltOsc.frequency.exponentialRampToValueAtTime(35,t+0.18);
                 }
             }
-            doorGroup.add(g);
-            // Invisible collision hitbox — full pillar height, no floor obstruction
-            const hb=new THREE.Mesh(new THREE.BoxGeometry(3.4,FH,2.4),new THREE.MeshBasicMaterial({visible:false}));
-            hb.position.set(xs*6.8,FH/2,FZ); doorGroup.add(hb); registerSolid(hb);
-        };
-        mkIPillar(-1); mkIPillar(1);
-
-        // Lintel — spans the top, above walkthrough zone
-        const lintel=new THREE.Mesh(new THREE.BoxGeometry(16.4,3.2,2.4),matRusty);
-        lintel.position.set(0,FH+1.2,FZ); lintel.castShadow=true;
-        doorGroup.add(lintel); registerSolid(lintel);
-
-        // ── WARNING SIRENS on the pillars ─────────────────────────────────
-        const sirens=[];
-        const mkSiren=(x,z)=>{
-            const sg=new THREE.Group(); sg.position.set(x,FH-1.5,z);
-            // Housing cone
-            sg.add(new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.6,1.0,14),new THREE.MeshLambertMaterial({color:0x0f0f0f})));
-            // Dome
-            const dome=new THREE.Mesh(new THREE.SphereGeometry(0.42,12,8,0,Math.PI*2,0,Math.PI/2),matGlassRed);
-            dome.position.y=0.1; sg.add(dome);
-            // Rotating reflector bar
-            const ref=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.12,0.12),new THREE.MeshLambertMaterial({color:0xaaaa00}));
-            sg.add(ref);
-            const sp=new THREE.SpotLight(0xff2200,0,55,Math.PI/5,0.4,1);
-            sp.position.set(0,0.2,0); sp.target.position.set(0,-8,6); sp.castShadow=false;
-            sg.add(sp); sg.add(sp.target);
-            doorGroup.add(sg);
-            sirens.push({group:sg,light:sp,reflector:ref});
-        };
-        mkSiren(-6.5,FZ-0.4); mkSiren(6.5,FZ-0.4);
-        mkSiren(-6.5,FZ+0.4); mkSiren(6.5,FZ+0.4);
-
-        // Status indicator rods (light up green when unlocked)
-        const matIndicatorInst=matIndicator; // same material, just aliased
-        const indL=new THREE.Mesh(new THREE.BoxGeometry(0.18,FH,0.18),matIndicatorInst);
-        indL.position.set(-5.2,FH/2,FZ); doorGroup.add(indL);
-        const indR=new THREE.Mesh(new THREE.BoxGeometry(0.18,FH,0.18),matIndicatorInst);
-        indR.position.set(5.2,FH/2,FZ); doorGroup.add(indR);
-
-        // ── DOOR PANELS: two halves that slide apart ──────────────────────
-        const doorHL=new THREE.Group(); doorHL.position.set(-PW/2,FH/2,DZ); doorGroup.add(doorHL);
-        const doorHR=new THREE.Group(); doorHR.position.set(PW/2,FH/2,DZ); doorGroup.add(doorHR);
-
-        // Main slab
-        const panelGeo=new THREE.BoxGeometry(PW,FH,1.2);
-        const pL=new THREE.Mesh(panelGeo,matDoor); pL.castShadow=true; doorHL.add(pL); registerSolid(pL);
-        const pR=new THREE.Mesh(panelGeo,matDoor); pR.castShadow=true; doorHR.add(pR); registerSolid(pR);
-
-        // Hazard edge strips on meeting edge
-        const hazGeo=new THREE.BoxGeometry(0.45,FH,0.35);
-        const heL=new THREE.Mesh(hazGeo,matHazard); heL.position.set(PW/2-0.22,0,0.75); doorHL.add(heL);
-        const heR=new THREE.Mesh(hazGeo,matHazard); heR.position.set(-PW/2+0.22,0,0.75); doorHR.add(heR);
-
-        // Surface rivet rows on each panel (visual only, no collision)
-        for(const px of[-PW/2+0.5, PW/2-0.5]) {
-            for(let py=-FH/2+1; py<FH/2; py+=2.2) {
-                const rv=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.1,8),matChrome);
-                rv.rotation.x=Math.PI/2; rv.position.set(px,py,0.65); doorHL.add(rv);
-                const rv2=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.1,8),matChrome);
-                rv2.rotation.x=Math.PI/2; rv2.position.set(-px,py,0.65); doorHR.add(rv2);
-            }
         }
 
-        // ── RACK BARS on top of each panel half (drive system) ──────────
-        const rackGeo=new THREE.BoxGeometry(PW,0.65,0.55);
-        const rackL=new THREE.Mesh(rackGeo,matSteel); rackL.position.set(0,FH/2+0.32,0); doorHL.add(rackL);
-        const rackR=new THREE.Mesh(rackGeo,matSteel); rackR.position.set(0,FH/2+0.32,0); doorHR.add(rackR);
-        const tGeo=new THREE.BoxGeometry(0.3,0.4,0.5);
-        for(let tx=-PW/2+0.3; tx<PW/2; tx+=0.62){
-            const tL=new THREE.Mesh(tGeo,matSteel); tL.position.set(tx,FH/2+0.66,0); doorHL.add(tL);
-            const tR=new THREE.Mesh(tGeo,matSteel); tR.position.set(tx,FH/2+0.66,0); doorHR.add(tR);
+        function stopAllDoorAudio(){
+            const a=doorAudio;
+            try{if(a.klaxonOsc)a.klaxonOsc.stop();if(a.grindOsc)a.grindOsc.stop();
+                if(a.rumbleOsc)a.rumbleOsc.stop();if(a.steamSrc)a.steamSrc.stop();
+                if(a.boltOsc)a.boltOsc.stop();}catch(_){}
         }
 
-        // ── MAIN DRIVE GEARS (outside face, above door gap) ──────────────
-        const GR=2.2;
-        const mkGear=(r,depth,teeth)=>{
+        // GEAR FACTORY — used throughout the door
+        const mkGear=(r,depth,teeth,mat)=>{
             const g=new THREE.Group();
-            const core=new THREE.Mesh(new THREE.CylinderGeometry(r*0.84,r*0.84,depth,20),matChrome);
-            core.rotation.x=Math.PI/2; g.add(core);
-            const hub=new THREE.Mesh(new THREE.CylinderGeometry(r*0.25,r*0.25,depth+0.25,10),matDarkMetal);
-            hub.rotation.x=Math.PI/2; g.add(hub);
-            const tG=new THREE.BoxGeometry((Math.PI*r*2)/(teeth*2.1),r*0.3,depth*0.85);
+            g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(r*0.82,r*0.82,depth,18),mat||matChrome),{rotation:{x:Math.PI/2}}));
+            const hub=new THREE.Mesh(new THREE.CylinderGeometry(r*0.24,r*0.24,depth+0.25,10),matDarkMetal); hub.rotation.x=Math.PI/2; g.add(hub);
+            const tGeo=new THREE.BoxGeometry((Math.PI*r*2)/(teeth*2.1),r*0.28,depth*0.88);
             for(let i=0;i<teeth;i++){
                 const a=(i/teeth)*Math.PI*2;
-                const t=new THREE.Mesh(tG,matSteel);
-                t.position.set(Math.cos(a)*r*0.93,Math.sin(a)*r*0.93,0);
-                t.rotation.z=a+Math.PI/2; g.add(t);
+                const t=new THREE.Mesh(tGeo,matSteel); t.position.set(Math.cos(a)*r*0.92,Math.sin(a)*r*0.92,0); t.rotation.z=a+Math.PI/2; g.add(t);
             }
             for(let i=0;i<6;i++){
                 const a=(i/6)*Math.PI*2;
-                const sp=new THREE.Mesh(new THREE.BoxGeometry(r*0.72,r*0.13,depth*0.65),matDarkMetal);
-                sp.position.set(Math.cos(a)*r*0.45,Math.sin(a)*r*0.45,0);
-                sp.rotation.z=a+Math.PI/2; g.add(sp);
+                const sp=new THREE.Mesh(new THREE.BoxGeometry(r*0.68,r*0.11,depth*0.66),matDarkMetal);
+                sp.position.set(Math.cos(a)*r*0.44,Math.sin(a)*r*0.44,0); sp.rotation.z=a+Math.PI/2; g.add(sp);
             }
             return g;
         };
-        // Main gears — one per side, on the front face, above the door
-        const gearYPos = FH + 1.6; // above lintel clearance, well above walk zone
-        const gearZPos = FZ + 0.7; // front face
-        const mgL=mkGear(GR,0.8,16); mgL.position.set(-PW-GR+0.4, gearYPos, gearZPos); doorGroup.add(mgL);
-        const mgR=mkGear(GR,0.8,16); mgR.position.set(PW+GR-0.4,  gearYPos, gearZPos); doorGroup.add(mgR);
-        const HGR=1.1;
-        const hgL=mkGear(HGR,0.6,9); hgL.position.set(-PW-GR*2+0.1, gearYPos+GR+HGR-0.3, gearZPos); doorGroup.add(hgL);
-        const hgR=mkGear(HGR,0.6,9); hgR.position.set(PW+GR*2-0.1,  gearYPos+GR+HGR-0.3, gearZPos); doorGroup.add(hgR);
-        // Motor housings
-        const mhMat=new THREE.MeshLambertMaterial({color:0x0c0c0c});
-        const mhL=new THREE.Mesh(new THREE.BoxGeometry(3.0,2.4,1.8),mhMat);
-        mhL.position.set(-PW-GR+0.4, gearYPos+GR+1.6, gearZPos-0.3); doorGroup.add(mhL);
-        const mhR=new THREE.Mesh(new THREE.BoxGeometry(3.0,2.4,1.8),mhMat);
-        mhR.position.set(PW+GR-0.4,  gearYPos+GR+1.6, gearZPos-0.3); doorGroup.add(mhR);
 
-        // ── HORIZONTAL LOCKING BARS (replace floor-blocking pistons) ─────
-        // Two horizontal bars per side — they retract outward to unlock.
-        // Positioned at mid-height and upper-height, never near the floor.
+        // ── FRAME: Thick I-beam pillars, NO floor geometry ────────────────
+        const mkIPillar=(xs)=>{
+            const g=new THREE.Group(); g.position.set(xs*6.6,FH/2,FAR);
+            const web=new THREE.Mesh(new THREE.BoxGeometry(0.55,FH,2.2),matRusty); g.add(web);
+            const tF=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.75,2.6),matRusty); tF.position.y=FH/2-0.38; g.add(tF);
+            for(const py of[FH*0.28,FH*0.0,-FH*0.22]){
+                const mF=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.42,2.2),matRusty); mF.position.y=py; g.add(mF);
+            }
+            const gp=new THREE.Mesh(new THREE.BoxGeometry(0.65,3.0,2.2),matDarkMetal); gp.position.y=FH/2-2.4; g.add(gp);
+            // Bolt rows on flange face
+            for(const by of[FH/2-0.38,FH*0.28,FH*0.0,-FH*0.22]) for(const bx of[-1.2,0,1.2]){
+                const bolt=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.16,8),matChrome);
+                bolt.rotation.x=Math.PI/2; bolt.position.set(bx,by,1.18); g.add(bolt);
+            }
+            doorGroup.add(g);
+            // Collision hitbox — full height, but player walks between pillars
+            const hb=new THREE.Mesh(new THREE.BoxGeometry(3.6,FH,2.6),new THREE.MeshBasicMaterial({visible:false}));
+            hb.position.set(xs*6.6,FH/2,FAR); doorGroup.add(hb); registerSolid(hb);
+        };
+        mkIPillar(-1); mkIPillar(1);
+
+        // Heavy lintel spanning the top — above the walkway
+        const lintel=new THREE.Mesh(new THREE.BoxGeometry(17.0,3.4,2.6),matRusty);
+        lintel.position.set(0,FH+1.4,FAR); lintel.castShadow=true;
+        doorGroup.add(lintel); registerSolid(lintel);
+
+        // Cross-braces from upper pillar to lintel centre (decorative, connected)
+        for(const xs of[-1,1]){
+            const bLen=6.2; const brace=new THREE.Mesh(new THREE.BoxGeometry(0.3,bLen,0.5),matDarkMetal);
+            brace.position.set(xs*3.2,FH-0.5,FAR+0.3); brace.rotation.z=xs*0.5; doorGroup.add(brace);
+        }
+
+        // ── WARNING SIRENS ────────────────────────────────────────────────
+        const sirens=[];
+        const mkSiren=(x,z)=>{
+            const sg=new THREE.Group(); sg.position.set(x,FH-1.2,z);
+            sg.add(new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.55,0.95,14),new THREE.MeshLambertMaterial({color:0x0c0c0c})));
+            const dome=new THREE.Mesh(new THREE.SphereGeometry(0.40,12,8,0,Math.PI*2,0,Math.PI/2),matGlassRed);
+            dome.position.y=0.08; sg.add(dome);
+            const ref=new THREE.Mesh(new THREE.BoxGeometry(0.65,0.11,0.11),new THREE.MeshLambertMaterial({color:0xaaaa00}));
+            sg.add(ref);
+            const sl=new THREE.SpotLight(0xff2200,0,60,Math.PI/5,0.4,1);
+            sl.position.set(0,0.2,0); sl.target.position.set(0,-8,6); sl.castShadow=false;
+            sg.add(sl); sg.add(sl.target); doorGroup.add(sg);
+            sirens.push({group:sg,light:sl,reflector:ref});
+        };
+        mkSiren(-6.2,FAR-0.4); mkSiren(6.2,FAR-0.4);
+        mkSiren(-6.2,FAR+0.4); mkSiren(6.2,FAR+0.4);
+
+        // Status indicator bars (glow green when unlocked)
+        const matInd=matIndicator;
+        const indL=new THREE.Mesh(new THREE.BoxGeometry(0.2,FH,0.2),matInd); indL.position.set(-5.0,FH/2,FAR); doorGroup.add(indL);
+        const indR=new THREE.Mesh(new THREE.BoxGeometry(0.2,FH,0.2),matInd); indR.position.set(5.0,FH/2,FAR); doorGroup.add(indR);
+
+        // ── DOOR PANELS — two slabs that slide apart ───────────────────────
+        const doorHL=new THREE.Group(); doorHL.position.set(-PW/2,FH/2,0.5); doorGroup.add(doorHL);
+        const doorHR=new THREE.Group(); doorHR.position.set(PW/2,FH/2,0.5); doorGroup.add(doorHR);
+
+        const panGeo=new THREE.BoxGeometry(PW,FH,1.3);
+        const pL2=new THREE.Mesh(panGeo,matDoor); pL2.castShadow=true; doorHL.add(pL2); registerSolid(pL2);
+        const pR2=new THREE.Mesh(panGeo,matDoor); pR2.castShadow=true; doorHR.add(pR2); registerSolid(pR2);
+
+        // Hazard edge strips
+        const hzG=new THREE.BoxGeometry(0.45,FH,0.38);
+        const hzL=new THREE.Mesh(hzG,matHazard); hzL.position.set(PW/2-0.22,0,0.74); doorHL.add(hzL);
+        const hzR=new THREE.Mesh(hzG,matHazard); hzR.position.set(-PW/2+0.22,0,0.74); doorHR.add(hzR);
+
+        // Rivet rows on panel face
+        for(const px of[-PW/2+0.5,PW/2-0.5]) for(let py=-FH/2+1.2;py<FH/2;py+=2.1){
+            const rv=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.1,8),matChrome);
+            rv.rotation.x=Math.PI/2; rv.position.set(px,py,0.68); doorHL.add(rv);
+            const rv2=rv.clone(); rv2.position.set(-px,py,0.68); doorHR.add(rv2);
+        }
+
+        // ── GEAR TRAIN — horizontal rack on panel tops, drive gears above lintel ──
+        const tGeo2=new THREE.BoxGeometry(PW,0.62,0.52);
+        const rackL2=new THREE.Mesh(tGeo2,matSteel); rackL2.position.set(0,FH/2+0.31,0); doorHL.add(rackL2);
+        const rackR2=new THREE.Mesh(tGeo2,matSteel); rackR2.position.set(0,FH/2+0.31,0); doorHR.add(rackR2);
+        const toothG=new THREE.BoxGeometry(0.28,0.38,0.48);
+        for(let tx=-PW/2+0.28;tx<PW/2;tx+=0.58){
+            const tL2=new THREE.Mesh(toothG,matSteel); tL2.position.set(tx,FH/2+0.62,0); doorHL.add(tL2);
+            const tR2=new THREE.Mesh(toothG,matSteel); tR2.position.set(tx,FH/2+0.62,0); doorHR.add(tR2);
+        }
+
+        // Main drive gears — one per side, meshing with rack
+        const GR=2.1, HGR=1.0;
+        const gearY=FH+1.8, gearZ=FAR+0.65;
+        const mgL=mkGear(GR,0.75,15); mgL.position.set(-PW-GR+0.3,gearY,gearZ); doorGroup.add(mgL);
+        const mgR=mkGear(GR,0.75,15); mgR.position.set(PW+GR-0.3,gearY,gearZ); doorGroup.add(mgR);
+        // Idler gears connected to motors
+        const hgL=mkGear(HGR,0.55,9); hgL.position.set(-PW-GR*2.1+0.2,gearY+GR+HGR-0.25,gearZ); doorGroup.add(hgL);
+        const hgR=mkGear(HGR,0.55,9); hgR.position.set(PW+GR*2.1-0.2,gearY+GR+HGR-0.25,gearZ); doorGroup.add(hgR);
+        // Motor housings — bolted to lintel underside
+        const mhMat=new THREE.MeshLambertMaterial({color:0x0a0a0a});
+        const mhL=new THREE.Mesh(new THREE.BoxGeometry(3.1,2.5,1.9),mhMat); mhL.position.set(-PW-GR+0.3,gearY+GR+1.5,gearZ-0.4); doorGroup.add(mhL);
+        const mhR=new THREE.Mesh(new THREE.BoxGeometry(3.1,2.5,1.9),mhMat); mhR.position.set(PW+GR-0.3,gearY+GR+1.5,gearZ-0.4); doorGroup.add(mhR);
+        // Motor output shafts (connected visually from motor to gear)
+        const shaftMat=new THREE.MeshLambertMaterial({color:0x333333});
+        const shL=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,1.0,10),shaftMat); shL.rotation.x=Math.PI/2; shL.position.set(-PW-GR+0.3,gearY,gearZ-0.38); doorGroup.add(shL);
+        const shR=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,1.0,10),shaftMat); shR.rotation.x=Math.PI/2; shR.position.set(PW+GR-0.3,gearY,gearZ-0.38); doorGroup.add(shR);
+        // Gear indicator lights on motor housings
+        const mIndL=new THREE.Mesh(new THREE.SphereGeometry(0.14,8,6),matInd); mIndL.position.set(-PW-GR+0.3-1.0,gearY+GR+2.2,gearZ+0.6); doorGroup.add(mIndL);
+        const mIndR=new THREE.Mesh(new THREE.SphereGeometry(0.14,8,6),matInd); mIndR.position.set(PW+GR-0.3+1.0,gearY+GR+2.2,gearZ+0.6); doorGroup.add(mIndR);
+
+        // ── LOCKING BOLTS — horizontal, above floor (never block walkway) ─
         const deadboltsL=[], deadboltsR=[];
-        for(const yOff of[FH*0.55, FH*0.25, -FH*0.05]){
-            // Left bar — slides further left to retract
-            const bL=new THREE.Group(); bL.position.set(-PW-0.4, yOff, FZ-0.55);
-            const bBody=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.6,0.6),matChrome);
-            bBody.position.x=-1.2; bL.add(bBody);
-            const bHead=new THREE.Mesh(new THREE.BoxGeometry(0.85,0.9,0.9),matSteel);
-            bHead.position.x=-2.75; bL.add(bHead);
-            const bSlot=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.85,0.85),matDarkMetal);
-            bSlot.position.x=-4.0; bL.add(bSlot);
+        for(const yOff of[FH*0.52,FH*0.22,-FH*0.06]){
+            // Left bolt group
+            const bL=new THREE.Group(); bL.position.set(-PW-0.4,yOff,FAR-0.6);
+            const bBody=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.58,0.58),matChrome); bBody.position.x=-1.1; bL.add(bBody);
+            const bHead=new THREE.Mesh(new THREE.BoxGeometry(0.82,0.88,0.88),matSteel); bHead.position.x=-2.55; bL.add(bHead);
+            const bSlot=new THREE.Mesh(new THREE.BoxGeometry(1.0,0.82,0.82),matDarkMetal); bSlot.position.x=-3.7; bL.add(bSlot);
+            // Connecting rod from bolt to frame — shows it's anchored
+            const bRod=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,1.2,8),shaftMat); bRod.rotation.z=Math.PI/2; bRod.position.x=-4.5; bL.add(bRod);
             doorGroup.add(bL); deadboltsL.push(bL);
-
-            // Right bar — mirror
-            const bR=new THREE.Group(); bR.position.set(PW+0.4, yOff, FZ-0.55);
-            const bRBody=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.6,0.6),matChrome);
-            bRBody.position.x=1.2; bR.add(bRBody);
-            const bRHead=new THREE.Mesh(new THREE.BoxGeometry(0.85,0.9,0.9),matSteel);
-            bRHead.position.x=2.75; bR.add(bRHead);
-            const bRSlot=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.85,0.85),matDarkMetal);
-            bRSlot.position.x=4.0; bR.add(bRSlot);
+            // Right bolt group (mirror)
+            const bR=new THREE.Group(); bR.position.set(PW+0.4,yOff,FAR-0.6);
+            const bRBody=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.58,0.58),matChrome); bRBody.position.x=1.1; bR.add(bRBody);
+            const bRHead=new THREE.Mesh(new THREE.BoxGeometry(0.82,0.88,0.88),matSteel); bRHead.position.x=2.55; bR.add(bRHead);
+            const bRSlot=new THREE.Mesh(new THREE.BoxGeometry(1.0,0.82,0.82),matDarkMetal); bRSlot.position.x=3.7; bR.add(bRSlot);
+            const bRRod=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,1.2,8),shaftMat); bRRod.rotation.z=Math.PI/2; bRRod.position.x=4.5; bR.add(bRRod);
             doorGroup.add(bR); deadboltsR.push(bR);
         }
 
-        // ── PRESSURE VALVES (spin during valves_pressure state) ──────────
+        // ── PRESSURE VALVES ───────────────────────────────────────────────
         const valves=[];
-        for(const[xv,yv]of[[-3.8,FH*0.42],[-3.8,FH*0.1],[3.8,FH*0.42],[3.8,FH*0.1]]){
+        for(const[xv,yv]of[[-3.6,FH*0.44],[-3.6,FH*0.12],[3.6,FH*0.44],[3.6,FH*0.12]]){
             const vG=new THREE.Group();
-            vG.add(new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.38,0.75,10),matSteel));
-            const h1=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.22,0.22),matWarnYellow); h1.position.y=0.48; vG.add(h1);
-            const h2=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.22,1.5),matWarnYellow); h2.position.y=0.48; vG.add(h2);
-            vG.position.set(xv,yv,FZ); vG.rotation.x=Math.PI/2;
+            const vBody=new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.36,0.72,10),matSteel); vG.add(vBody);
+            const vH1=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.2,0.2),matWarnYellow); vH1.position.y=0.46; vG.add(vH1);
+            const vH2=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,1.5),matWarnYellow); vH2.position.y=0.46; vG.add(vH2);
+            // Pipe stub connecting valve to door panel
+            const vStub=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.8,8),matDarkMetal); vStub.position.y=-0.75; vG.add(vStub);
+            vG.position.set(xv,yv,FAR); vG.rotation.x=Math.PI/2;
             doorGroup.add(vG); valves.push(vG);
         }
 
-        // ── VAULT WHEEL (centre of door face) ────────────────────────────
-        const vaultWG=new THREE.Group(); vaultWG.position.set(0,FH*0.42,FZ+0.5); doorGroup.add(vaultWG);
-        const vWheelRim=new THREE.Mesh(new THREE.TorusGeometry(2.0,0.24,10,30),matRusty); vaultWG.add(vWheelRim);
-        const vWheelDisc=new THREE.Mesh(new THREE.CylinderGeometry(2.0,2.0,0.55,28),matChrome); vWheelDisc.rotation.x=Math.PI/2; vaultWG.add(vWheelDisc);
-        for(let i=0;i<8;i++){
-            const a=(i/8)*Math.PI*2;
-            const sp=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.3,0.3),matSteel);
-            sp.rotation.z=a; vaultWG.add(sp);
-        }
-        const vHub=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.75,12),matDarkMetal); vHub.rotation.x=Math.PI/2; vaultWG.add(vHub);
+        // ── VAULT WHEEL (centre, connected via recessed shaft) ────────────
+        const vaultWG=new THREE.Group(); vaultWG.position.set(0,FH*0.40,FAR+0.5); doorGroup.add(vaultWG);
+        const vRim=new THREE.Mesh(new THREE.TorusGeometry(1.9,0.22,10,28),matRusty); vaultWG.add(vRim);
+        const vDisc=new THREE.Mesh(new THREE.CylinderGeometry(1.9,1.9,0.52,26),matChrome); vDisc.rotation.x=Math.PI/2; vaultWG.add(vDisc);
+        for(let i=0;i<8;i++){const a=(i/8)*Math.PI*2;const sp=new THREE.Mesh(new THREE.BoxGeometry(3.4,0.28,0.28),matSteel);sp.rotation.z=a;vaultWG.add(sp);}
+        const vHub2=new THREE.Mesh(new THREE.CylinderGeometry(0.48,0.48,0.72,12),matDarkMetal); vHub2.rotation.x=Math.PI/2; vaultWG.add(vHub2);
+        // Shaft from wheel back into door panel — shows it's connected
+        const wShaft=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.8,10),shaftMat); wShaft.rotation.x=Math.PI/2; wShaft.position.z=-0.65; vaultWG.add(wShaft);
 
         // ── PRESSURE GAUGES ───────────────────────────────────────────────
-        const mkGauge=(xg,yg)=>{
-            const g=new THREE.Group(); g.position.set(xg,yg,FZ);
-            g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.65,0.65,0.2,16),new THREE.MeshLambertMaterial({color:0x080808}))).rotation.x=Math.PI/2;
-            const rim=new THREE.Mesh(new THREE.TorusGeometry(0.65,0.09,8,20),matChrome); g.add(rim);
-            const needle=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.48,0.07),new THREE.MeshBasicMaterial({color:0xff3300}));
-            needle.position.set(0.19,0.16,0.12); needle.rotation.z=-0.55; g.add(needle);
+        const mkGauge2=(xg,yg)=>{
+            const g=new THREE.Group(); g.position.set(xg,yg,FAR);
+            const face=new THREE.Mesh(new THREE.CylinderGeometry(0.62,0.62,0.18,16),new THREE.MeshLambertMaterial({color:0x080808}));
+            face.rotation.x=Math.PI/2; g.add(face);
+            g.add(new THREE.Mesh(new THREE.TorusGeometry(0.62,0.09,8,20),matChrome));
+            const needle=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.46,0.07),new THREE.MeshBasicMaterial({color:0xff3300}));
+            needle.position.set(0.18,0.15,0.12); needle.rotation.z=-0.55; g.add(needle);
             doorGroup.add(g);
         };
-        mkGauge(-5.6,FH*0.68); mkGauge(5.6,FH*0.68);
-        mkGauge(-5.6,FH*0.2);  mkGauge(5.6,FH*0.2);
+        mkGauge2(-5.5,FH*0.70); mkGauge2(5.5,FH*0.70);
+        mkGauge2(-5.5,FH*0.22); mkGauge2(5.5,FH*0.22);
 
-        // ── HYDRAULIC PIPE RUNS along pillar inner faces ──────────────────
-        const pipeMat2=new THREE.MeshLambertMaterial({color:0x181818});
-        const mkPipe=(x,y1,y2,z)=>{
+        // ── PIPE NETWORK — all connected to real structures ───────────────
+        const pipMat=new THREE.MeshLambertMaterial({color:0x181818});
+        const mkPipe2=(x,y1,y2,z)=>{
             const len=Math.abs(y2-y1);
-            const p=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,len,8),pipeMat2);
+            const p=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,len,8),pipMat);
             p.position.set(x,(y1+y2)/2,z); doorGroup.add(p);
-            // Pipe collar at each end
-            for(const ey of[y1,y2]){
-                const c=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.22,8),pipeMat2);
-                c.position.set(x,ey,z); doorGroup.add(c);
-            }
+            for(const ey of[y1,y2]){const c=new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.19,0.2,8),pipMat);c.position.set(x,ey,z);doorGroup.add(c);}
         };
-        mkPipe(-7.4, 2.0, FH-1.0, FZ-0.3);
-        mkPipe( 7.4, 2.0, FH-1.0, FZ-0.3);
-        mkPipe(-7.4, FH*0.15, FH*0.5, FZ-0.5);
-        mkPipe( 7.4, FH*0.15, FH*0.5, FZ-0.5);
+        // Vertical pipe runs along pillar faces
+        mkPipe2(-7.2, 2.2, FH-1.2, FAR-0.35);
+        mkPipe2( 7.2, 2.2, FH-1.2, FAR-0.35);
+        // Horizontal crossover pipes at mid height (connecting left to right)
+        const hPipe1=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,8.0,8),pipMat);
+        hPipe1.rotation.z=Math.PI/2; hPipe1.position.set(0,FH*0.35,FAR-0.4); doorGroup.add(hPipe1);
+        const hPipe2=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,8.0,8),pipMat);
+        hPipe2.rotation.z=Math.PI/2; hPipe2.position.set(0,FH*0.60,FAR-0.4); doorGroup.add(hPipe2);
+        // Diagonal pipe from lower valve to gauge
+        for(const xs of[-1,1]){
+            const dp=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,2.5,8),pipMat);
+            dp.position.set(xs*4.4,FH*0.27,FAR-0.3); dp.rotation.z=xs*0.35; doorGroup.add(dp);
+        }
 
         scene.add(doorGroup);
 
@@ -1479,7 +1527,8 @@ const startPos=getPos(1,1);
                     termBtn.position.z=0.44;
                     termScreenMat.color.setHex(0xff4400);termLight.color.setHex(0xff6600);termLight.intensity=4;
                     ledMat.color.setHex(0xff4400);playTerminalClick();
-                    setTimeout(()=>{doorState='valves_pressure';initIndustrialAudio();sirens.forEach(s=>s.light.intensity=45);klaxonGain.gain.setTargetAtTime(0.015,audioCtx.currentTime,0.1);hissGain.gain.setTargetAtTime(0.1,audioCtx.currentTime,0.1);},700);
+                  setTimeout(()=>{doorState='valves_pressure';initDoorAudio();sirens.forEach(s=>s.light.intensity=50);},700);
+
                 }
             }
         });
@@ -1888,64 +1937,63 @@ corridorLights.forEach(cl => {
                 if (showTerm) document.getElementById('prompt-text').innerText = 'ACTIVATE TERMINAL';
             }
 
-            // ---- DOOR ANIMATION ----
-            if(!gameWon)camera.rotation.z=0;
+          // ---- DOOR ANIMATION ─────────────────────────────────────────
+            if(!gameWon) camera.rotation.z=0;
+            // Siren group spin (always active once door sequence starts)
+            if(doorState!=='closed'&&doorState!=='ready_terminal'){
+                sirens.forEach((s,i)=>{s.group.rotation.y+=delta*(i%2===0?2.6:-2.6);});
+            }
             if(doorState!=='closed'&&doorState!=='open'&&doorState!=='ready_terminal'){
                 const dtd=camPos.distanceTo(doorGroup.position),vs=Math.max(0,1-dtd/55);
-                if(klaxonGain)klaxonGain.gain.setTargetAtTime(vs*0.016,audioCtx.currentTime,0.1);
-                if(!gameWon&&dtd<50){const si=(50-dtd)*0.0012;camera.rotation.z=(Math.random()-0.5)*si;}
+                if(!gameWon&&dtd<50){camera.rotation.z=(Math.random()-0.5)*(50-dtd)*0.0012;}
+                doorSnd('klaxon',vs*0.018);
 
                 if(doorState==='valves_pressure'){
-                    valves.forEach(v=>v.rotation.z+=delta*Math.PI*1.2);
-                    if(Math.random()>0.55)emitSteam(doorGroup.position.x+(Math.random()-0.5)*4,0.5,doorGroup.position.z-1);
-                    if(hissGain)hissGain.gain.setTargetAtTime(vs*0.12,audioCtx.currentTime,0.1);
-                    // After valve full rotation, move to vault unlock
-                    if(valves[0].rotation.z>Math.PI*5){
+                    valves.forEach(v=>v.rotation.z+=delta*Math.PI*1.5);
+                    if(Math.random()>0.5) emitSteam(doorGroup.position.x+(Math.random()-0.5)*4,1.2,doorGroup.position.z-1.5);
+                    doorSnd('steam',vs*0.14);
+                    if(valves[0].rotation.z>Math.PI*6){
                         doorState='vault_unlock';
-                        if(hissGain)hissGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.1);
-                        if(vaultGain)vaultGain.gain.setTargetAtTime(vs*0.045,audioCtx.currentTime,0.1);
+                        doorSnd('steam',0); doorSnd('grind',vs*0.05);
                     }
                 } else if(doorState==='vault_unlock'){
-                    vaultWG.rotation.z+=delta*(Math.PI/4.5);
-                    if(vaultGain)vaultGain.gain.setTargetAtTime(vs*0.045,audioCtx.currentTime,0.1);
-                    if(vaultWG.rotation.z>Math.PI*1.5){
-                        doorState='unlatching';matIndicator.color.setHex(0x00ff00);
-                        if(vaultGain)vaultGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.1);
-                        if(latchGain)latchGain.gain.setTargetAtTime(vs*0.065,audioCtx.currentTime,0.1);
+                    vaultWG.rotation.z+=delta*(Math.PI/4.2);
+                    doorSnd('grind',vs*0.05);
+                    if(vaultWG.rotation.z>Math.PI*2.0){
+                        doorState='unlatching'; matInd.color.setHex(0x00ff00);
+                        doorSnd('grind',0);
+                        // Play three bolt clangs staggered
+                        [0,0.18,0.36].forEach(delay=>setTimeout(()=>doorSnd('bolt',0.18),delay*1000));
                     }
                 } else if(doorState==='unlatching'){
-                    // Slide all bolts back
-                    const bs=delta*0.6;
-                    deadboltsL.forEach(b=>{b.position.x-=bs*3.5;});
-                    deadboltsR.forEach(b=>{b.position.x+=bs*3.5;});
-                    if(latchGain)latchGain.gain.setTargetAtTime(vs*0.065,audioCtx.currentTime,0.1);
-                    if(deadboltsL[0].position.x<-7){
-                        doorState='retracting_pistons';
-                        if(latchGain)latchGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.1);
-                        if(pistonGain)pistonGain.gain.setTargetAtTime(vs*0.18,audioCtx.currentTime,0.1);
-                    }
-                } else if(doorState==='retracting_pistons'){
-                    pistonGrp.position.y+=delta*1.1;
-                    if(pistonGain)pistonGain.gain.setTargetAtTime(vs*0.18,audioCtx.currentTime,0.1);
-                    if(pistonGrp.position.y>5.5){
+                    const bs=delta*0.85;
+                    deadboltsL.forEach(b=>{b.position.x-=bs*4.2;});
+                    deadboltsR.forEach(b=>{b.position.x+=bs*4.2;});
+                    if(deadboltsL[0].position.x<-9.0){
                         doorState='sliding';
-                        if(pistonGain)pistonGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.1);
-                        if(gearGain)gearGain.gain.setTargetAtTime(vs*0.09,audioCtx.currentTime,0.1);
+                        doorSnd('grind',vs*0.10); doorSnd('rumble',vs*0.12);
                     }
                 } else if(doorState==='sliding'){
-                    if(doorHL.position.x>-PW-2.5){
-                        const sl=delta*0.52;doorHL.position.x-=sl;doorHR.position.x+=sl;
-                        const gr=sl/GR;mgL.rotation.z-=gr;mgR.rotation.z+=gr;
-                        const hr=GR/1.0;hgL.rotation.z+=gr*hr;hgR.rotation.z-=gr*hr;
-                        if(Math.random()>0.42){emitSpark(doorGroup.position.x-3.5,FH/2+FH/2+GR,doorGroup.position.z-0.5);emitSpark(doorGroup.position.x+3.5,FH/2+FH/2+GR,doorGroup.position.z-0.5);}
-                        if(gearGain)gearGain.gain.setTargetAtTime(vs*0.09,audioCtx.currentTime,0.1);
+                    if(doorHL.position.x>-PW-3.5){
+                        const sl=delta*0.58;
+                        doorHL.position.x-=sl; doorHR.position.x+=sl;
+                        // Gear rotation proportional to panel movement
+                        mgL.rotation.z-=sl/GR; mgR.rotation.z+=sl/GR;
+                        hgL.rotation.z+=(sl/GR)*(GR/HGR); hgR.rotation.z-=(sl/GR)*(GR/HGR);
+                        if(Math.random()>0.35){
+                            emitSpark(doorGroup.position.x-3.0,gearY,gearZ-0.3);
+                            emitSpark(doorGroup.position.x+3.0,gearY,gearZ-0.3);
+                        }
+                        doorSnd('grind',vs*0.10); doorSnd('rumble',vs*0.12);
                     } else {
-                        doorState='open';sirens.forEach(s=>s.light.intensity=0);
-                        const fot=audioCtx.currentTime+1.5;
-                        if(klaxonGain)klaxonGain.gain.linearRampToValueAtTime(0,fot);if(gearGain)gearGain.gain.linearRampToValueAtTime(0,fot);
+                        doorState='open';
+                        sirens.forEach(s=>s.light.intensity=0);
+                        doorSnd('klaxon',0); doorSnd('grind',0); doorSnd('rumble',0);
+                        setTimeout(stopAllDoorAudio,2000);
                     }
                 }
             }
+
 
      // --- UPDATE DUST PARTICLES (OPTIMIZED) ---
             if (dustParticles) {
@@ -1960,7 +2008,7 @@ corridorLights.forEach(cl => {
                 ws.style.display='flex';setTimeout(()=>{fb.style.opacity='1';ws.style.opacity='1';},50);
                 document.getElementById('finalTime').innerText=`FINAL TIME: ${totalElapsed}s`;
                 elPrompt.style.display='none';
-                try{if(klaxonOsc)klaxonOsc.stop();if(latchOsc)latchOsc.stop();if(pistonOsc)pistonOsc.stop();if(gearOsc)gearOsc.stop();if(vaultOsc)vaultOsc.stop();if(hissSrc)hissSrc.stop();}catch(_){}
+                  try{stopAllDoorAudio();}catch(_){}
             }
         }
 
