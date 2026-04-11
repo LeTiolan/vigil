@@ -131,8 +131,11 @@
         let puzzleOpen = false;
 
         // -- Power Routing (Puzzle A) state --
-        const PR_SIZE = 4; // 4x4 grid
-        let prGrid = [];   // will be populated per-panel
+       const PR_SIZE = 5;    // 5x5 power routing grid
+        const FUSE_SIZE = 5;  // 5x5 fuse sliding grid
+        let soLastDelta = 0.016; // used by sequence puzzle draw
+        let prGrid = [];
+
 
         // -- Fuse Box (Puzzle B) state --
         let fuseGrid = [];      // 4x4 array of values (0=empty, 1=normal, 2=master)
@@ -993,39 +996,35 @@ const startPos=getPos(1,1);
 
         scene.add(doorGroup);
 
-// ================================================================
-        //  WALL PUZZLE PANELS — 3 physical panels, wall-anchored
-        //  Types: 'power' | 'fuse' | 'sequence'  (frequency = main terminal)
+  // ================================================================
+        //  WALL PUZZLE PANELS — 6 panels with dedicated 3D models
         // ================================================================
-     const PUZZLE_TYPES = ['power', 'fuse', 'sequence', 'power', 'fuse', 'sequence'];
-
-        const panelSearchSeeds = [
-            {sx: Math.floor(MAZE_SIZE*0.2),  sz: Math.floor(MAZE_SIZE*0.2)},
-            {sx: Math.floor(MAZE_SIZE*0.8),  sz: Math.floor(MAZE_SIZE*0.2)},
-            {sx: Math.floor(MAZE_SIZE*0.2),  sz: Math.floor(MAZE_SIZE*0.8)},
-            {sx: Math.floor(MAZE_SIZE*0.8),  sz: Math.floor(MAZE_SIZE*0.8)},
-            {sx: Math.floor(MAZE_SIZE*0.5),  sz: Math.floor(MAZE_SIZE*0.3)},
-            {sx: Math.floor(MAZE_SIZE*0.5),  sz: Math.floor(MAZE_SIZE*0.7)},
+        const PUZZLE_TYPES=['power','fuse','sequence','power','fuse','sequence'];
+        const panelSearchSeeds=[
+            {sx:Math.floor(MAZE_SIZE*0.2),sz:Math.floor(MAZE_SIZE*0.2)},
+            {sx:Math.floor(MAZE_SIZE*0.8),sz:Math.floor(MAZE_SIZE*0.2)},
+            {sx:Math.floor(MAZE_SIZE*0.2),sz:Math.floor(MAZE_SIZE*0.8)},
+            {sx:Math.floor(MAZE_SIZE*0.8),sz:Math.floor(MAZE_SIZE*0.8)},
+            {sx:Math.floor(MAZE_SIZE*0.5),sz:Math.floor(MAZE_SIZE*0.3)},
+            {sx:Math.floor(MAZE_SIZE*0.5),sz:Math.floor(MAZE_SIZE*0.7)},
         ];
-        const usedPanelCells = new Set(); // prevent overlap with each other
+        const usedPanelCells=new Set();
 
-        function findWallCell(seedX, seedZ) {
-            for (let radius = 1; radius < 10; radius++) {
-                for (let dx = -radius; dx <= radius; dx++) {
-                    for (let dz = -radius; dz <= radius; dz++) {
-                        const cx = seedX+dx, cz = seedZ+dz;
-                        if (cx<1||cx>=MAZE_SIZE-1||cz<1||cz>=MAZE_SIZE-1) continue;
-                        if (maze[cx][cz] !== 0) continue;
-                        const key = `${cx},${cz}`;
-                        if (usedPanelCells.has(key)) continue;
-                        // Must be far from exit terminal
-                        const termDist = Math.hypot(cx - exitGridX, cz - (exitGridZ-3));
-                        if (termDist < 5) continue;
-                        for (const [wx,wz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-                            const nx=cx+wx, nz=cz+wz;
-                            if (nx>=0&&nx<MAZE_SIZE&&nz>=0&&nz<MAZE_SIZE&&maze[nx][nz]===1) {
+        function findWallCell(seedX,seedZ){
+            for(let radius=1;radius<12;radius++){
+                for(let dx=-radius;dx<=radius;dx++){
+                    for(let dz=-radius;dz<=radius;dz++){
+                        const cx=seedX+dx,cz=seedZ+dz;
+                        if(cx<1||cx>=MAZE_SIZE-1||cz<1||cz>=MAZE_SIZE-1)continue;
+                        if(maze[cx][cz]!==0)continue;
+                        const key=`${cx},${cz}`;
+                        if(usedPanelCells.has(key))continue;
+                        if(Math.hypot(cx-exitGridX,cz-(exitGridZ-3))<6)continue;
+                        for(const[wx,wz]of[[1,0],[-1,0],[0,1],[0,-1]]){
+                            const nx=cx+wx,nz=cz+wz;
+                            if(nx>=0&&nx<MAZE_SIZE&&nz>=0&&nz<MAZE_SIZE&&maze[nx][nz]===1){
                                 usedPanelCells.add(key);
-                                return {cx, cz, wx, wz};
+                                return{cx,cz,wx,wz};
                             }
                         }
                     }
@@ -1034,695 +1033,391 @@ const startPos=getPos(1,1);
             return null;
         }
 
-        function buildWallPanel(cx, cz, wx, wz, typeStr) {
-            const wp = getPos(cx, cz);
-            const pwx = wp.x + wx*(TILE_SIZE/2 - 0.3);
-            const pwz = wp.z + wz*(TILE_SIZE/2 - 0.3);
-            const angle = Math.atan2(-wx, -wz);
-
-            const grp = new THREE.Group();
-            grp.position.set(pwx, 0, pwz);
-            grp.rotation.y = angle;
+        function buildWallPanel(cx,cz,wx,wz,typeStr){
+            const wp=getPos(cx,cz);
+            const pwx=wp.x+wx*(TILE_SIZE/2-0.3);
+            const pwz=wp.z+wz*(TILE_SIZE/2-0.3);
+            const angle=Math.atan2(-wx,-wz);
+            const grp=new THREE.Group();
+            grp.position.set(pwx,0,pwz); grp.rotation.y=angle;
 
             // Mounting bracket
-            const brk = new THREE.Mesh(
-                new THREE.BoxGeometry(3.0, 5.0, 0.18),
-                new THREE.MeshLambertMaterial({color:0x1a1208})
-            );
-            brk.position.set(0, 2.4, -0.08); grp.add(brk);
-
-            // Bezel frame
-            const bez = new THREE.Mesh(
-                new THREE.BoxGeometry(2.7, 4.6, 0.12),
-                new THREE.MeshLambertMaterial({color:0x0c0c08})
-            );
-            bez.position.set(0, 2.4, 0.01); grp.add(bez);
-
-            // Screen canvas material (starts dark red)
-            const screenMat = new THREE.MeshBasicMaterial({color:0x100004});
-            const screen = new THREE.Mesh(
-                new THREE.BoxGeometry(2.2, 3.6, 0.04),
-                screenMat
-            );
-            screen.position.set(0, 2.7, 0.1); grp.add(screen);
-
-            // Emissive status strip (bottom of panel)
-            const stripMat = new THREE.MeshBasicMaterial({color:0x440008});
-            const strip = new THREE.Mesh(
-                new THREE.BoxGeometry(2.2, 0.18, 0.04),
-                stripMat
-            );
-            strip.position.set(0, 0.55, 0.1); grp.add(strip);
-
-            // Panel glow light (starts red, turns green on solve)
-            const pLight = new THREE.PointLight(0x550010, 1.2, 7);
-            pLight.position.set(0, 2.4, 1.0); grp.add(pLight);
-
-            // Bolt heads (decorative, 4 corners)
-            const boltMat = new THREE.MeshLambertMaterial({color:0x3a3020});
-            for (const [bx,by] of [[-1.2,0.4],[1.2,0.4],[-1.2,4.4],[1.2,4.4]]) {
-                const bolt = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.12,0.12,0.1,8),
-                    boltMat
-                );
-                bolt.rotation.x = Math.PI/2; bolt.position.set(bx,by,0.06); grp.add(bolt);
+            const brk=new THREE.Mesh(new THREE.BoxGeometry(3.2,5.4,0.2),new THREE.MeshLambertMaterial({color:0x181408}));
+            brk.position.set(0,2.6,-0.09); grp.add(brk);
+            // Corner bolts
+            for(const[bx,by]of[[-1.3,0.35],[1.3,0.35],[-1.3,4.9],[1.3,4.9]]){
+                const bolt=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.13,8),matChrome);
+                bolt.rotation.x=Math.PI/2; bolt.position.set(bx,by,0.07); grp.add(bolt);
             }
+            // Bezel housing
+            const bez=new THREE.Mesh(new THREE.BoxGeometry(3.0,5.0,0.45),new THREE.MeshLambertMaterial({color:0x0e0e0a}));
+            bez.position.set(0,2.6,0.05); grp.add(bez);
+            // Screen
+            const screenMat=new THREE.MeshBasicMaterial({color:0x100004});
+            const scrn=new THREE.Mesh(new THREE.BoxGeometry(2.4,3.0,0.05),screenMat);
+            scrn.position.set(0,3.1,0.28); grp.add(scrn);
+            // Status strip
+            const stripMat=new THREE.MeshBasicMaterial({color:0x440008});
+            const strip=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.2,0.05),stripMat);
+            strip.position.set(0,0.55,0.28); grp.add(strip);
+            // Glow light
+            const pLight=new THREE.PointLight(0x550010,1.4,8);
+            pLight.position.set(0,2.6,1.2); grp.add(pLight);
 
-            // Type label on strip
-            const labelMap = {power:'PWR-ROUTE',fuse:'FUSE-BOX',sequence:'SEQ-LOCK'};
+            // Type-specific surface details
+            if(typeStr==='power'){
+                const condMat=new THREE.MeshLambertMaterial({color:0x1a2a10});
+                for(const py of[1.2,2.2,3.2,4.0]){
+                    const rail=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.1,0.08),condMat);
+                    rail.position.set(0,py,0.3); grp.add(rail);
+                }
+                for(const px of[-0.8,0,0.8]){
+                    const vr=new THREE.Mesh(new THREE.BoxGeometry(0.1,3.0,0.08),condMat);
+                    vr.position.set(px,2.5,0.3); grp.add(vr);
+                }
+                const nodeMat=new THREE.MeshBasicMaterial({color:0x00aa44});
+                for(const[nx2,ny2]of[[-0.8,1.2],[0,2.2],[0.8,3.2],[-0.8,4.0],[0.8,1.2]]){
+                    const nd=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.25,0.12),nodeMat);
+                    nd.position.set(nx2,ny2,0.32); grp.add(nd);
+                }
+            }
+            if(typeStr==='fuse'){
+                const fuseMat=new THREE.MeshLambertMaterial({color:0x886600});
+                const fuseCapGeo=new THREE.CylinderGeometry(0.22,0.22,0.28,6);
+                for(const[fx,fy]of[[-0.7,1.0],[0.7,1.0],[-0.7,2.0],[0.7,2.0],[-0.7,3.0],[0.7,3.0]]){
+                    const fc=new THREE.Mesh(fuseCapGeo,fuseMat); fc.rotation.x=Math.PI/2;
+                    fc.position.set(fx,fy,0.32); grp.add(fc);
+                    const led=new THREE.Mesh(new THREE.SphereGeometry(0.08,6,4),new THREE.MeshBasicMaterial({color:0xff4400}));
+                    led.position.set(fx,fy+0.35,0.3); grp.add(led);
+                }
+                const mfMat=new THREE.MeshLambertMaterial({color:0xaa8800});
+                const mf=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,0.4,6),mfMat);
+                mf.rotation.x=Math.PI/2; mf.position.set(0,4.2,0.33); grp.add(mf);
+            }
+            if(typeStr==='sequence'){
+                const btnColors=[0xaa0000,0x006600,0x000088,0x886600];
+                const btnPositions=[[-0.6,1.0],[0.6,1.0],[-0.6,2.2],[0.6,2.2]];
+                btnPositions.forEach(([bx,by],i)=>{
+                    const bMat=new THREE.MeshLambertMaterial({color:btnColors[i]});
+                    const btn=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.7,0.22),bMat);
+                    btn.position.set(bx,by,0.32); grp.add(btn);
+                });
+                const waveMat=new THREE.MeshBasicMaterial({color:0x00cc66});
+                for(let wi=0;wi<5;wi++){
+                    const seg=new THREE.Mesh(new THREE.BoxGeometry(0.35,0.06,0.05),waveMat);
+                    seg.position.set(-0.8+wi*0.4,3.5+Math.sin(wi*1.6)*0.18,0.3); grp.add(seg);
+                }
+            }
 
             scene.add(grp);
-            return {
-                worldX: pwx, worldZ: pwz,
-                type: typeStr,
-                solved: false,
-                group: grp,
-                screenMat,
-                stripMat,
-                light: pLight,
-                label: labelMap[typeStr]
-            };
+            const labels={power:'PWR-ROUTE',fuse:'FUSE-BOX',sequence:'SEQ-LOCK'};
+            return{worldX:pwx,worldZ:pwz,type:typeStr,solved:false,group:grp,screenMat,stripMat,light:pLight,label:labels[typeStr]};
         }
 
-        // Place all 3 panels
-        for (let i = 0; i < 6; i++) {
-            const seed = panelSearchSeeds[i];
-            const cell = findWallCell(seed.sx, seed.sz);
-            if (cell) {
-                const panel = buildWallPanel(cell.cx, cell.cz, cell.wx, cell.wz, PUZZLE_TYPES[i]);
-                wallPanels.push(panel);
-            }
+        for(let i=0;i<6;i++){
+            const seed=panelSearchSeeds[i];
+            const cell=findWallCell(seed.sx,seed.sz);
+            if(cell) wallPanels.push(buildWallPanel(cell.cx,cell.cz,cell.wx,cell.wz,PUZZLE_TYPES[i]));
         }
 
         // ================================================================
-        //  TERMINAL PANEL — wall-anchored, never floating
-        //  Find open cell adjacent to wall near door approach, mount on wall face
-        // ================================================================
-        let termCellX=-1,termCellZ=-1,termFaceX=0,termFaceZ=0;
-        const searchX=exitGridX,searchZ=exitGridZ-3;
-        outer:for(let radius=1;radius<8;radius++){
-            for(let dx=-radius;dx<=radius;dx++)for(let dz=-radius;dz<=radius;dz++){
-                const cx=searchX+dx,cz=searchZ+dz;
-                if(cx<1||cx>=MAZE_SIZE-1||cz<1||cz>=MAZE_SIZE-1||maze[cx][cz]!==0)continue;
-                for(const[wx,wz]of[[1,0],[-1,0],[0,1],[0,-1]]){
-                    const nx=cx+wx,nz=cz+wz;
-                    if(nx>=0&&nx<MAZE_SIZE&&nz>=0&&nz<MAZE_SIZE&&maze[nx][nz]===1){
-                        termCellX=cx;termCellZ=cz;termFaceX=wx;termFaceZ=wz;break outer;
-                    }
-                }
-            }
-        }
-        const termWP=getPos(termCellX,termCellZ);
-        const TERM_WX=termWP.x+termFaceX*(TILE_SIZE/2-0.4);
-        const TERM_WZ=termWP.z+termFaceZ*(TILE_SIZE/2-0.4);
-        const termAngle=Math.atan2(-termFaceX,-termFaceZ);
-
-        const termGrp=new THREE.Group();termGrp.position.set(TERM_WX,0,TERM_WZ);termGrp.rotation.y=termAngle;
-
-        // Mounting bracket bolted into wall
-        const mBracket=new THREE.Mesh(new THREE.BoxGeometry(4.2,6.8,0.3),matRusty);mBracket.position.set(0,2.6,-0.15);termGrp.add(mBracket);
-        // Bolt heads on bracket
-        for(const[bx2,by2]of[[-1.7,0.4],[1.7,0.4],[-1.7,4.8],[1.7,4.8]]){const bolt=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.12,8),matChrome);bolt.rotation.x=Math.PI/2;bolt.position.set(bx2,by2,0.06);termGrp.add(bolt);}
-
-        // Main terminal housing
-        const tHousing=new THREE.Mesh(new THREE.BoxGeometry(3.0,4.5,0.55),new THREE.MeshLambertMaterial({color:0x0c0c08}));tHousing.position.set(0,2.6,0.14);termGrp.add(tHousing);
-
-        // Bezel frame around screen
-        const tBezel=new THREE.Mesh(new THREE.BoxGeometry(2.6,3.2,0.1),new THREE.MeshLambertMaterial({color:0x1c1a0e}));tBezel.position.set(0,3.1,0.44);termGrp.add(tBezel);
-
-        // Screen
-        const termScreenMat=new THREE.MeshBasicMaterial({color:0x180002});
-        const tScreen=new THREE.Mesh(new THREE.BoxGeometry(2.3,2.8,0.04),termScreenMat);tScreen.position.set(0,3.1,0.50);termGrp.add(tScreen);
-        const termLight=new THREE.PointLight(0x550008,1.5,8);termLight.position.set(0,3.0,1.2);termGrp.add(termLight);
-
-        // Button assembly (round with housing)
-        const termBtnHouse=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,0.35),new THREE.MeshLambertMaterial({color:0x0e0e0a}));termBtnHouse.position.set(0,1.1,0.36);termGrp.add(termBtnHouse);
-        const termBtnMat=new THREE.MeshBasicMaterial({color:0xbb0000});
-        const termBtn=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.18,16),termBtnMat);termBtn.rotation.x=Math.PI/2;termBtn.position.set(0,1.1,0.56);termGrp.add(termBtn);
-        // Button label engraving
-        const btnLabel=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.12,0.02),new THREE.MeshLambertMaterial({color:0x888866}));btnLabel.position.set(0,0.65,0.45);termGrp.add(btnLabel);
-
-        // LED indicator column
-        const ledMat=new THREE.MeshBasicMaterial({color:0x880010});
-        const led1=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,6),ledMat);led1.position.set(1.3,1.8,0.5);termGrp.add(led1);
-        const led2=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,6),new THREE.MeshBasicMaterial({color:0x008800}));led2.position.set(1.3,2.2,0.5);termGrp.add(led2);
-        const led3=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,6),new THREE.MeshBasicMaterial({color:0x006688}));led3.position.set(1.3,2.6,0.5);termGrp.add(led3);
-
-        // Cable run at bottom going into wall
-        const cableMat=new THREE.MeshLambertMaterial({color:0x111110});
-        const cable=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,1.5,8),cableMat);cable.position.set(0.4,0.1,0.3);cable.rotation.z=0.3;termGrp.add(cable);
-
-        scene.add(termGrp);
-
-        // ================================================================
-        //  ORBS — bigger, animated fluid texture, pickup ring
-        // ================================================================
-        const orbs=[],SAFE=20;
-        let oAt=0;
-        while(orbs.length<TOTAL_ORBS&&oAt<2000){
-            oAt++;const cell=emptyCells[Math.floor(Math.random()*emptyCells.length)];
-            const pos=getPos(cell.x,cell.z);
-            if(Math.hypot(pos.x-startPos.x,pos.z-startPos.z)<SAFE)continue;
-            let near=false;for(const o of orbs)if(Math.hypot(pos.x-o.position.x,pos.z-o.position.z)<20){near=true;break;}
-            if(!near){
-                // Animated fluid sphere — uses shared orbTex updated each frame
-                const orbMat=new THREE.MeshBasicMaterial({map:orbTex,transparent:true,opacity:0.95});
-                const orb=new THREE.Mesh(new THREE.SphereGeometry(0.85,16,12),orbMat);
-                orb.position.set(pos.x,2.2,pos.z);
-                // Outer glow shell
-                const glowMat=new THREE.MeshBasicMaterial({color:0x00ccff,transparent:true,opacity:0.18,depthWrite:false,side:THREE.BackSide});
-                const glow=new THREE.Mesh(new THREE.SphereGeometry(1.3,10,8),glowMat);orb.add(glow);
-                // Floor ring
-                const rMat=new THREE.MeshBasicMaterial({color:0x00eeff,transparent:true,opacity:0.35,depthWrite:false});
-                const ring=new THREE.Mesh(new THREE.RingGeometry(0.9,1.1,28),rMat);ring.rotation.x=-Math.PI/2;ring.position.y=-2.15;orb.add(ring);
-                orb.userData.ringMat=rMat;orb.userData.glowMat=glowMat;
-                const oL=new THREE.PointLight(0x00eeff,1.8,18);orb.add(oL);
-                scene.add(orb);orbs.push(orb);
-            }
-        }
-
-        // ================================================================
-        //  PHANTOMS — multi-layer ominous appearance + advanced AI
-        // ================================================================
-        const enemies=[];
-        function mkPhantom(ePos,eCell){
-            const root=new THREE.Group();root.position.set(ePos.x,2.2,ePos.z);
-            // Dark core
-            const core=new THREE.Mesh(new THREE.SphereGeometry(0.85,14,10),new THREE.MeshBasicMaterial({color:0x110016,transparent:true,opacity:0.97}));root.add(core);
-            // Mid wispy shell
-            const mid=new THREE.Mesh(new THREE.SphereGeometry(1.25,10,7),new THREE.MeshBasicMaterial({color:0x2a0050,transparent:true,opacity:0.5,depthWrite:false}));root.add(mid);
-            // Outer wisp
-            const outer=new THREE.Mesh(new THREE.SphereGeometry(1.7,8,5),new THREE.MeshBasicMaterial({color:0x3a0060,transparent:true,opacity:0.2,depthWrite:false}));root.add(outer);
-            // Eye-like inner glow — two dim reddish points
-            const eyeL=new THREE.PointLight(0xff1100,0,0);eyeL.position.set(-0.3,0.2,0.6);root.add(eyeL);
-            const eyeR=new THREE.PointLight(0xff1100,0,0);eyeR.position.set(0.3,0.2,0.6);root.add(eyeR);
-            // Ambient glow light for environment
-            const pL=new THREE.PointLight(0x660033,1.2,20);root.add(pL);
-            root.userData={
-                // Core AI state machine
-                state:'patrol',
-                alertTimer:0, huntTimer:0, searchTimer:0,
-                pathQueue:[], pathUpdateT:0,
-                targetPos:new THREE.Vector3(ePos.x,2.2,ePos.z),
-                lastGrid:{x:eCell.x,z:eCell.z},
-                lastKnownGrid:null,
-                lastKnownPos:{x:ePos.x,z:ePos.z}, // world coords of last player sighting
-                spawnGrid:{x:eCell.x,z:eCell.z},   // for returning to patrol area
-                // Speed accumulates over time
-                baseSpeed:PATROL_SPD, currentSpeed:PATROL_SPD,
-                // Memory: ring buffer of recent player positions with timestamps
-                playerMemory:[], // [{wx,wz,t}]
-                // Predicted hunt position
-                predictedPos:null,
-                // Group coordination: true for 3s after being alerted by another phantom
-                groupAlerted:false, groupTimer:0,
-                // Eye glow refs
-                eyeL, eyeR, light:pL,
-                name:ENEMY_NAMES[enemies.length%ENEMY_NAMES.length],
-                // Wobble phase for visual undulation
-                wobbleSeed:Math.random()*100,
-                // Alert visual state
-                coreMesh:core, midMesh:mid, outerMesh:outer
-            };
-            scene.add(root); enemies.push(root); return root;
-        }
-        let eAt=0;
-        while(enemies.length<8&&eAt<2000){
-            eAt++;const eCell=emptyCells[Math.floor(Math.random()*emptyCells.length)];
-            const ePos=getPos(eCell.x,eCell.z);
-            if(Math.hypot(ePos.x-startPos.x,ePos.z-startPos.z)<40)continue;
-            let near=false;for(const e of enemies)if(Math.hypot(ePos.x-e.position.x,ePos.z-e.position.z)<30){near=true;break;}
-            if(!near)mkPhantom(ePos,eCell);
-        }
-
-        // ================================================================
-        //  AI HELPERS
-        // ================================================================
-        function triggerAlert(e,fromGroup){
-            const ud=e.userData;
-            if(ud.state==='hunt'){ud.alertTimer=ALERT_DUR;return;}
-            const wasPatrol=ud.state==='patrol';
-            ud.state=fromGroup?'search':'hunt';
-            if(!fromGroup){ud.huntTimer=HUNT_DUR;ud.alertTimer=ALERT_DUR;}
-            else{ud.searchTimer=SEARCH_DUR;ud.groupAlerted=true;ud.groupTimer=3.0;}
-            ud.pathQueue=[];ud.pathUpdateT=0;
-            if(!fromGroup){
-                ud.eyeL.distance=8;ud.eyeR.distance=8;
-                ud.eyeL.intensity=3;ud.eyeR.intensity=3;
-                playScreech();
-                // Group coordination: partial-alert nearby phantoms
-                enemies.forEach(e2=>{if(e2!==e&&e2.userData.state==='patrol'){const d=e.position.distanceTo(e2.position);if(d<55)triggerAlert(e2,true);}});
-            }
-        }
-
-        function alertAllInRadius(wx,wz,r){enemies.forEach(e=>{if(Math.hypot(e.position.x-wx,e.position.z-wz)<r)triggerAlert(e,false);});}
-// ================================================================
         //  PUZZLE ENGINE
         // ================================================================
+        const BADGE_LABELS={power:'PWR',fuse:'FUSE',sequence:'SEQ'};
+        const TYPE_LABELS={power:'PWR-ROUTE',fuse:'FUSE-BOX',sequence:'SEQ-LOCK'};
 
-        // ---- Shared: open / close overlay ----
-   const BADGE_LABELS = {power:'PWR', fuse:'FUSE', sequence:'SEQ'};
-        const TYPE_LABELS   = {power:'PWR-ROUTE', fuse:'FUSE-BOX', sequence:'SEQ-LOCK'};
-
-        function openPuzzle(panel) {
-            if (panel.solved) return;
-            activePuzzle = panel;
-            puzzleOpen = true;
-            document.exitPointerLock();
-
-            // Set the data-ptype on the overlay so CSS themes itself
-            elPuzzleOverlay.setAttribute('data-ptype', panel.type);
-
-            // Update header text
-            document.getElementById('puzzle-type-badge').innerText = BADGE_LABELS[panel.type] || 'SYS';
-            elPuzzleTitle.innerText = TYPE_LABELS[panel.type] || panel.label;
-            elPuzzleStatus.innerText = 'AWAITING INPUT';
-
-            // Reset animation so it plays fresh every open
-            const box = document.getElementById('puzzle-box');
-            box.style.animation = 'none';
-            void box.offsetWidth; // reflow
-            box.style.animation = '';
-
-            // Show overlay
-            elPuzzleOverlay.style.display = 'flex';
-            elPuzzleOverlay.classList.add('active');
-
-            if (panel.type === 'power')    initPowerPuzzle();
-            if (panel.type === 'fuse')     initFusePuzzle();
-            if (panel.type === 'sequence') initSequencePuzzle();
-
+        function openPuzzle(panel){
+            if(panel.solved)return;
+            activePuzzle=panel; puzzleOpen=true; document.exitPointerLock();
+            elPuzzleOverlay.setAttribute('data-ptype',panel.type);
+            document.getElementById('puzzle-type-badge').innerText=BADGE_LABELS[panel.type]||'SYS';
+            elPuzzleTitle.innerText=TYPE_LABELS[panel.type]||panel.label;
+            elPuzzleStatus.innerText='AWAITING INPUT';
+            const box=document.getElementById('puzzle-box');
+            box.style.animation='none'; void box.offsetWidth; box.style.animation='';
+            elPuzzleOverlay.style.display='flex'; elPuzzleOverlay.classList.add('active');
+            if(panel.type==='power')    initPowerPuzzle();
+            if(panel.type==='fuse')     initFusePuzzle();
+            if(panel.type==='sequence') initSequencePuzzle();
             requestAnimationFrame(drawPuzzle);
         }
-
-        function closePuzzle() {
-            puzzleOpen = false;
-            activePuzzle = null;
-            elPuzzleOverlay.classList.remove('active');
-            elPuzzleOverlay.style.display = 'none';
+        function closePuzzle(){
+            puzzleOpen=false; activePuzzle=null;
+            elPuzzleOverlay.classList.remove('active'); elPuzzleOverlay.style.display='none';
             document.body.requestPointerLock();
         }
-
-    function solvePuzzle(panel) {
-            panel.solved = true;
+        function solvePuzzle(panel){
+            panel.solved=true;
             panel.screenMat.color.setHex(0x002210);
             panel.stripMat.color.setHex(0x00aa44);
-            panel.light.color.setHex(0x00ff66);
-            panel.light.intensity = 2.8;
+            panel.light.color.setHex(0x00ff66); panel.light.intensity=2.8;
             puzzlesSolved++;
             playPuzzleSuccess();
-            elPuzzleStatus.innerText = 'SYSTEM ONLINE — ' + (TOTAL_PUZZLES - puzzlesSolved) + ' PANELS REMAINING';
-
-            // Mark the correct tracker slot as solved
-            const slotIndex = wallPanels.indexOf(panel);
-            if (slotIndex >= 0) {
-                const slot = document.getElementById('tslot-' + slotIndex);
-                if (slot) slot.classList.add('solved');
-            }
-
-            setTimeout(closePuzzle, 1800);
+            elPuzzleStatus.innerText='SYSTEM ONLINE — '+(TOTAL_PUZZLES-puzzlesSolved)+' PANELS REMAINING';
+            const slotIndex=wallPanels.indexOf(panel);
+            if(slotIndex>=0){const slot=document.getElementById('tslot-'+slotIndex);if(slot)slot.classList.add('solved');}
+            setTimeout(closePuzzle,1800);
         }
 
-        // ================================================================
-        //  PUZZLE A: POWER ROUTING
-        //  4x4 grid. Click nodes to rotate. Path must connect bottom→top.
-        // ================================================================
-        // Node shapes: 0=L, 1=T, 2=I, 3=+
-        // Connections per shape at rotation 0: exits array [top,right,bottom,left]
-        const PR_SHAPES = [
-            [0,1,1,0], // L: right+bottom
-            [1,1,1,0], // T: top+right+bottom
-            [1,0,1,0], // I: top+bottom
-            [1,1,1,1], // +: all
-        ];
+        // ── PUZZLE A: POWER ROUTING (5x5, no pre-solved path) ────────────
+        const PR_SHAPES=[[0,1,1,0],[1,1,1,0],[1,0,1,0],[1,1,1,1]];
 
-        function prRotateExits(exits, r) {
-            // r = 0..3 clockwise rotations
-            const e = [...exits];
-            for (let i = 0; i < r; i++) {
-                const tmp = e[3]; e[3]=e[2]; e[2]=e[1]; e[1]=e[0]; e[0]=tmp;
-            }
+        function prRotateExits(exits,r){
+            const e=[...exits];
+            for(let i=0;i<r;i++){const tmp=e[3];e[3]=e[2];e[2]=e[1];e[1]=e[0];e[0]=tmp;}
             return e;
         }
-
-        function initPowerPuzzle() {
-            prGrid = [];
-            for (let r = 0; r < PR_SIZE; r++) {
-                prGrid[r] = [];
-                for (let c = 0; c < PR_SIZE; c++) {
-                    prGrid[r][c] = {
-                        shape: Math.floor(Math.random() * 4),
-                        rot: Math.floor(Math.random() * 4),
-                        powered: false
-                    };
-                }
-            }
-            // Guarantee a solvable path exists by carving a random path
-            let pr = PR_SIZE-1, pc = Math.floor(Math.random()*PR_SIZE);
-            prGrid[pr][pc].shape = 2; prGrid[pr][pc].rot = 0; // I vertical at bottom entry
-            while (pr > 0) {
-                const go = Math.random() > 0.4 ? 'up' : (pc>0?'left':'right');
-                if (go==='up') pr--;
-                else if (go==='left') pc=Math.max(0,pc-1);
-                else pc=Math.min(PR_SIZE-1,pc+1);
-                prGrid[pr][pc].shape = 2; prGrid[pr][pc].rot = 0;
-            }
+        function initPowerPuzzle(){
+            prGrid=[];
+            for(let r=0;r<PR_SIZE;r++){prGrid[r]=[];for(let c=0;c<PR_SIZE;c++)prGrid[r][c]={shape:Math.floor(Math.random()*4),rot:Math.floor(Math.random()*4),powered:false};}
+            const hubR=1+Math.floor(Math.random()*3),hubC=1+Math.floor(Math.random()*3);
+            prGrid[hubR][hubC].shape=3; prGrid[hubR][hubC].rot=0;
+            prGrid[PR_SIZE-1][Math.floor(Math.random()*PR_SIZE)].shape=2;
+            prGrid[PR_SIZE-1][Math.floor(Math.random()*PR_SIZE)].rot=0;
+            prGrid[0][Math.floor(Math.random()*PR_SIZE)].shape=2;
+            prGrid[0][Math.floor(Math.random()*PR_SIZE)].rot=0;
             prCheckPower();
         }
-
-        function prCheckPower() {
-            // Reset all powered
-            for (let r=0;r<PR_SIZE;r++) for(let c=0;c<PR_SIZE;c++) prGrid[r][c].powered=false;
-            // BFS from bottom row (power sources)
-            const q = [];
-            for (let c=0;c<PR_SIZE;c++) { prGrid[PR_SIZE-1][c].powered=true; q.push([PR_SIZE-1,c]); }
-            while (q.length) {
-                const [r,c] = q.shift();
-                const node = prGrid[r][c];
-                const exits = prRotateExits(PR_SHAPES[node.shape], node.rot);
-                // Check each direction: [top,right,bottom,left]
-                const dirs = [[-1,0],[0,1],[1,0],[0,-1]];
+        function prCheckPower(){
+            for(let r=0;r<PR_SIZE;r++)for(let c=0;c<PR_SIZE;c++)prGrid[r][c].powered=false;
+            const q=[];
+            for(let c=0;c<PR_SIZE;c++){prGrid[PR_SIZE-1][c].powered=true;q.push([PR_SIZE-1,c]);}
+            while(q.length){
+                const[r,c]=q.shift();
+                const exits=prRotateExits(PR_SHAPES[prGrid[r][c].shape],prGrid[r][c].rot);
+                const dirs=[[-1,0],[0,1],[1,0],[0,-1]];
                 exits.forEach((open,d)=>{
-                    if (!open) return;
-                    const [nr,nc] = [r+dirs[d][0], c+dirs[d][1]];
-                    if (nr<0||nr>=PR_SIZE||nc<0||nc>=PR_SIZE) return;
-                    if (prGrid[nr][nc].powered) return;
-                    // Neighbour must have its facing exit open toward us
-                    const oppD = (d+2)%4;
-                    const nExits = prRotateExits(PR_SHAPES[prGrid[nr][nc].shape], prGrid[nr][nc].rot);
-                    if (nExits[oppD]) {
-                        prGrid[nr][nc].powered = true; q.push([nr,nc]);
-                    }
+                    if(!open)return;
+                    const[nr,nc]=[r+dirs[d][0],c+dirs[d][1]];
+                    if(nr<0||nr>=PR_SIZE||nc<0||nc>=PR_SIZE||prGrid[nr][nc].powered)return;
+                    const oppD=(d+2)%4;
+                    const nExits=prRotateExits(PR_SHAPES[prGrid[nr][nc].shape],prGrid[nr][nc].rot);
+                    if(nExits[oppD]){prGrid[nr][nc].powered=true;q.push([nr,nc]);}
                 });
             }
         }
-
-        function prIsSolved() {
-            for (let c=0;c<PR_SIZE;c++) if (prGrid[0][c].powered) return true;
-            return false;
-        }
-
-        function drawPowerPuzzle() {
-            const W=480, H=400, pad=30, cellW=(W-pad*2)/PR_SIZE, cellH=(H-pad*2-40)/PR_SIZE;
-            pCtx.fillStyle='#050805'; pCtx.fillRect(0,0,W,H);
-            // Title
-            pCtx.fillStyle='#406040'; pCtx.font='bold 10px Courier New';
-            pCtx.fillText('POWER IN ▼ (rotate nodes to connect) ▲ POWER OUT',pad,20);
-
-            for (let r=0;r<PR_SIZE;r++) for(let c=0;c<PR_SIZE;c++){
+        function prIsSolved(){for(let c=0;c<PR_SIZE;c++)if(prGrid[0][c].powered)return true;return false;}
+        function drawPowerPuzzle(){
+            const W=480,H=400,pad=28,cellW=(W-pad*2)/PR_SIZE,cellH=(H-pad*2-50)/PR_SIZE;
+            pCtx.fillStyle='#080c08'; pCtx.fillRect(0,0,W,H);
+            for(let i=0;i<300;i++){pCtx.fillStyle=`rgba(0,0,0,${Math.random()*0.08})`;pCtx.fillRect(Math.random()*W,Math.random()*H,Math.random()*4+1,Math.random()*3+1);}
+            pCtx.fillStyle='#101810'; pCtx.fillRect(0,0,W,46);
+            pCtx.fillStyle='#284028'; pCtx.fillRect(0,44,W,2);
+            pCtx.fillStyle='#40aa60'; pCtx.font='bold 11px Courier New';
+            pCtx.fillText('\u26a1 POWER IN \u25bc  ROUTE SIGNAL TO \u25b2 POWER OUT',pad,16);
+            pCtx.fillStyle='#286040'; pCtx.font='9px Courier New';
+            pCtx.fillText('CLICK NODES TO ROTATE \u00b7 ALL CONNECTIONS MUST BE MUTUAL',pad,34);
+            for(let r=0;r<PR_SIZE;r++)for(let c=0;c<PR_SIZE;c++){
                 const node=prGrid[r][c];
-                const x=pad+c*cellW+cellW/2, y=pad+40+r*cellH+cellH/2;
+                const x=pad+c*cellW+cellW/2,y=pad+50+r*cellH+cellH/2;
                 const exits=prRotateExits(PR_SHAPES[node.shape],node.rot);
-                const color = node.powered ? '#00ffaa' : '#1a3a1a';
-                const glow  = node.powered ? '#00ff88' : '#0a1a0a';
-
-                // Octagon node
+                const color=node.powered?'#00ffaa':'#1e4a1e';
+                const fill=node.powered?'#003318':'#070f07';
                 pCtx.save(); pCtx.translate(x,y);
+                if(node.powered){pCtx.shadowColor='#00ff88';pCtx.shadowBlur=18;}
                 pCtx.beginPath();
-                for(let i=0;i<8;i++){const a=(i/8)*Math.PI*2-Math.PI/8;pCtx.lineTo(Math.cos(a)*18,Math.sin(a)*18);}
+                for(let i=0;i<8;i++){const a=(i/8)*Math.PI*2-Math.PI/8;pCtx.lineTo(Math.cos(a)*16,Math.sin(a)*16);}
                 pCtx.closePath();
-                pCtx.fillStyle=glow; pCtx.fill();
-                pCtx.strokeStyle=color; pCtx.lineWidth=node.powered?2:1; pCtx.stroke();
-
-                // Pipe exits — [top,right,bottom,left]
-                pCtx.strokeStyle=color; pCtx.lineWidth=node.powered?5:3;
-                if(exits[0]){pCtx.beginPath();pCtx.moveTo(0,-10);pCtx.lineTo(0,-cellH/2+2);pCtx.stroke();}
-                if(exits[1]){pCtx.beginPath();pCtx.moveTo(10,0);pCtx.lineTo(cellW/2-2,0);pCtx.stroke();}
-                if(exits[2]){pCtx.beginPath();pCtx.moveTo(0,10);pCtx.lineTo(0,cellH/2-2);pCtx.stroke();}
-                if(exits[3]){pCtx.beginPath();pCtx.moveTo(-10,0);pCtx.lineTo(-cellW/2+2,0);pCtx.stroke();}
-
-                // Greeble: small resistor square
-                pCtx.fillStyle='#0a180a'; pCtx.fillRect(-5,-5,10,10);
-                pCtx.strokeStyle=color; pCtx.lineWidth=1; pCtx.strokeRect(-5,-5,10,10);
+                pCtx.fillStyle=fill; pCtx.fill();
+                pCtx.strokeStyle=color; pCtx.lineWidth=node.powered?2.5:1; pCtx.stroke();
+                pCtx.shadowBlur=0;
+                pCtx.strokeStyle=color; pCtx.lineWidth=node.powered?5:2.5;
+                const hw=cellW/2-2,hh=cellH/2-2;
+                if(exits[0]){pCtx.beginPath();pCtx.moveTo(0,-9);pCtx.lineTo(0,-hh);pCtx.stroke();}
+                if(exits[1]){pCtx.beginPath();pCtx.moveTo(9,0);pCtx.lineTo(hw,0);pCtx.stroke();}
+                if(exits[2]){pCtx.beginPath();pCtx.moveTo(0,9);pCtx.lineTo(0,hh);pCtx.stroke();}
+                if(exits[3]){pCtx.beginPath();pCtx.moveTo(-9,0);pCtx.lineTo(-hw,0);pCtx.stroke();}
+                pCtx.fillStyle=node.powered?'#004422':'#0a120a'; pCtx.fillRect(-6,-6,12,12);
+                pCtx.strokeStyle=color; pCtx.lineWidth=0.8; pCtx.strokeRect(-6,-6,12,12);
                 pCtx.restore();
             }
-            // Power source indicator (bottom)
-            pCtx.fillStyle='#00ffaa'; pCtx.font='9px Courier New';
-            pCtx.fillText('⚡ POWER IN', pad, H-10);
-            pCtx.fillText('⚡ POWER OUT', W-pad-75, 38);
+            pCtx.fillStyle='#00ffaa'; pCtx.font='bold 9px Courier New';
+            pCtx.fillText('\u26a1 POWER IN',pad,H-8);
+            pCtx.fillText('\u26a1 POWER OUT',W-pad-70,62);
         }
 
-        // ================================================================
-        //  PUZZLE B: FUSE BOX (Sliding puzzle)
-        //  4x4 grid. Slide fuses. Master fuse must reach [0][3].
-        // ================================================================
-        function initFusePuzzle() {
-            // Solved state: master at top-right, others fill rest
-            fuseGrid = [[2,1,1,0],[1,1,1,1],[1,1,1,1],[1,1,1,1]];
-            fuseEmpty = {r:0,c:3};
-            // Shuffle by doing 80 valid random moves
-            for (let i=0;i<80;i++) {
+        // ── PUZZLE B: FUSE BOX (5x5, TWO master fuses, 160 shuffles) ─────
+        function initFusePuzzle(){
+            fuseGrid=[];
+            for(let r=0;r<FUSE_SIZE;r++){fuseGrid[r]=[];for(let c=0;c<FUSE_SIZE;c++)fuseGrid[r][c]=1;}
+            fuseGrid[0][FUSE_SIZE-1]=2; fuseGrid[FUSE_SIZE-1][0]=3; fuseGrid[2][2]=0;
+            fuseEmpty={r:2,c:2};
+            for(let i=0;i<160;i++){
                 const moves=[];
-                if(fuseEmpty.r>0) moves.push({r:fuseEmpty.r-1,c:fuseEmpty.c});
-                if(fuseEmpty.r<3) moves.push({r:fuseEmpty.r+1,c:fuseEmpty.c});
-                if(fuseEmpty.c>0) moves.push({r:fuseEmpty.r,c:fuseEmpty.c-1});
-                if(fuseEmpty.c<3) moves.push({r:fuseEmpty.r,c:fuseEmpty.c+1});
+                if(fuseEmpty.r>0)moves.push({r:fuseEmpty.r-1,c:fuseEmpty.c});
+                if(fuseEmpty.r<FUSE_SIZE-1)moves.push({r:fuseEmpty.r+1,c:fuseEmpty.c});
+                if(fuseEmpty.c>0)moves.push({r:fuseEmpty.r,c:fuseEmpty.c-1});
+                if(fuseEmpty.c<FUSE_SIZE-1)moves.push({r:fuseEmpty.r,c:fuseEmpty.c+1});
                 const m=moves[Math.floor(Math.random()*moves.length)];
                 fuseGrid[fuseEmpty.r][fuseEmpty.c]=fuseGrid[m.r][m.c];
                 fuseGrid[m.r][m.c]=0; fuseEmpty={r:m.r,c:m.c};
             }
         }
-
-        function fuseSlide(r,c) {
-            // Can only slide into empty slot
-            if(Math.abs(r-fuseEmpty.r)+Math.abs(c-fuseEmpty.c)!==1) return;
-            if(fuseGrid[r][c]===0) return;
+        function fuseSlide(r,c){
+            if(Math.abs(r-fuseEmpty.r)+Math.abs(c-fuseEmpty.c)!==1||fuseGrid[r][c]===0)return;
             fuseGrid[fuseEmpty.r][fuseEmpty.c]=fuseGrid[r][c];
-            fuseGrid[r][c]=0; fuseEmpty={r,c};
-            playPuzzleTick();
+            fuseGrid[r][c]=0; fuseEmpty={r,c}; playPuzzleTick();
         }
-
-        function fuseIsSolved() {
-            return fuseGrid[0][3]===2;
-        }
-
-        function drawFusePuzzle() {
-            const W=480,H=400,pad=40,cellW=(W-pad*2)/4,cellH=(H-pad*2-20)/4;
-            pCtx.fillStyle='#060806'; pCtx.fillRect(0,0,W,H);
-            pCtx.fillStyle='#406040'; pCtx.font='bold 10px Courier New';
-            pCtx.fillText('FUSE BOX — SLIDE MASTER FUSE [M] TO TOP-RIGHT SLOT',pad,22);
-
-            // Grid background
-            pCtx.fillStyle='#0a100a';
-            pCtx.fillRect(pad,pad+8,W-pad*2,H-pad*2-8);
-
-            for(let r=0;r<4;r++) for(let c=0;c<4;c++){
+        function fuseIsSolved(){return fuseGrid[0][FUSE_SIZE-1]===2&&fuseGrid[FUSE_SIZE-1][0]===3;}
+        function drawFusePuzzle(){
+            const W=480,H=400,pad=30,cellW=(W-pad*2)/FUSE_SIZE,cellH=(H-pad*2-50)/FUSE_SIZE;
+            pCtx.fillStyle='#0c0a06'; pCtx.fillRect(0,0,W,H);
+            for(let i=0;i<300;i++){pCtx.fillStyle=`rgba(0,0,0,${Math.random()*0.1})`;pCtx.fillRect(Math.random()*W,Math.random()*H,Math.random()*4+1,2);}
+            pCtx.fillStyle='#1a1000'; pCtx.fillRect(0,0,W,48);
+            pCtx.fillStyle='#4a3000'; pCtx.fillRect(0,46,W,2);
+            pCtx.fillStyle='#ffaa00'; pCtx.font='bold 11px Courier New';
+            pCtx.fillText('\u2b21 FUSE BOX \u2014 SLIDE BOTH MASTERS TO TARGETS',pad,16);
+            pCtx.fillStyle='#886000'; pCtx.font='9px Courier New';
+            pCtx.fillText('[A]\u2192TOP-RIGHT  \u00b7  [B]\u2192BOTTOM-LEFT  \u00b7  CLICK ADJACENT TO MOVE',pad,34);
+            pCtx.fillStyle='#0d0a06'; pCtx.fillRect(pad,pad+8,W-pad*2,H-pad*2-8);
+            for(let r=0;r<FUSE_SIZE;r++)for(let c=0;c<FUSE_SIZE;c++){
                 const val=fuseGrid[r][c];
-                const x=pad+c*cellW+8, y=pad+8+r*cellH+8, fw=cellW-16, fh=cellH-16;
-                if(val===0){
-                    // Empty slot
-                    pCtx.strokeStyle='#1a2a1a'; pCtx.lineWidth=1;
-                    pCtx.strokeRect(x,y,fw,fh);
-                    continue;
-                }
-                const isMaster=(val===2);
-                // Fuse housing (rounded rect)
-                pCtx.fillStyle=isMaster?'#2a2200':'#141814';
+                const x=pad+c*cellW+5,y=pad+50+r*cellH+5,fw=cellW-10,fh=cellH-10;
+                if(val===0){pCtx.fillStyle='rgba(0,0,0,0.55)';pCtx.fillRect(x,y,fw,fh);continue;}
+                const isA=(val===2),isB=(val===3),isMaster=isA||isB;
+                pCtx.fillStyle=isA?'#2a1e00':isB?'#0a1a2a':'#141212';
+                pCtx.beginPath();pCtx.roundRect(x,y,fw,fh,3);pCtx.fill();
+                pCtx.strokeStyle=isA?'#ffaa00':isB?'#00aaff':'#3a2a10';pCtx.lineWidth=isMaster?2:1;pCtx.stroke();
+                const hcx=x+fw/2,hcy=y+fh/2,hr2=Math.min(fw,fh)*0.26;
                 pCtx.beginPath();
-                pCtx.roundRect(x,y,fw,fh,4);
-                pCtx.fill();
-                pCtx.strokeStyle=isMaster?'#ffcc00':'#304030'; pCtx.lineWidth=isMaster?2:1;
-                pCtx.stroke();
-
-                // Fuse hex body (use hexagonal outline for PSX look)
-                const cx2=x+fw/2, cy2=y+fh/2, hr=Math.min(fw,fh)*0.28;
-                pCtx.beginPath();
-                for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;pCtx.lineTo(cx2+Math.cos(a)*hr,cy2+Math.sin(a)*hr);}
+                for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;pCtx.lineTo(hcx+Math.cos(a)*hr2,hcy+Math.sin(a)*hr2);}
                 pCtx.closePath();
-                pCtx.fillStyle=isMaster?'#997700':'#1a2a1a'; pCtx.fill();
-                pCtx.strokeStyle=isMaster?'#ffdd00':'#406040'; pCtx.lineWidth=isMaster?2:1; pCtx.stroke();
-
-                // Label
-                pCtx.fillStyle=isMaster?'#ffee88':'#508050';
-                pCtx.font=`bold ${isMaster?11:9}px Courier New`;
-                pCtx.textAlign='center';
-                pCtx.fillText(isMaster?'M':r*4+c+1,cx2,cy2+4);
-                pCtx.textAlign='left';
-
-                // "VOLTAGE-HIGH" micro label
-                if(isMaster){
-                    pCtx.fillStyle='#664400'; pCtx.font='7px Courier New';
-                    pCtx.textAlign='center'; pCtx.fillText('VOLTAGE-HIGH',cx2,y+fh-4); pCtx.textAlign='left';
-                }
+                pCtx.fillStyle=isA?'#886600':isB?'#005588':'#1e1a16';pCtx.fill();
+                pCtx.strokeStyle=isA?'#ffcc00':isB?'#00ccff':'#4a3820';pCtx.lineWidth=isMaster?1.5:0.8;pCtx.stroke();
+                pCtx.fillStyle=isA?'#ffe080':isB?'#80e0ff':'#6a5840';
+                pCtx.font=`bold ${isMaster?12:9}px Courier New`;pCtx.textAlign='center';
+                pCtx.fillText(isA?'A':isB?'B':r*FUSE_SIZE+c,hcx,hcy+4);pCtx.textAlign='left';
             }
-            // Target indicator
-            pCtx.strokeStyle='#ffcc00'; pCtx.lineWidth=2; pCtx.setLineDash([3,3]);
-            pCtx.strokeRect(pad+(3)*cellW+8,pad+8+8,cellW-16,cellH-16);
+            pCtx.setLineDash([4,3]);
+            pCtx.strokeStyle='#ffaa00';pCtx.lineWidth=2;
+            pCtx.strokeRect(pad+(FUSE_SIZE-1)*cellW+5,pad+50+5,cellW-10,cellH-10);
+            pCtx.strokeStyle='#00aaff';
+            pCtx.strokeRect(pad+5,pad+50+(FUSE_SIZE-1)*cellH+5,cellW-10,cellH-10);
             pCtx.setLineDash([]);
-            pCtx.fillStyle='#664400'; pCtx.font='8px Courier New';
-            pCtx.fillText('TARGET',pad+(3)*cellW+10,pad+8+cellH-4);
         }
 
-        // ================================================================
-        //  PUZZLE C: SEQUENCE OVERRIDE (Simon Says)
-        //  4 buttons, sequence grows to 4. Click in correct order.
-        // ================================================================
-        const SO_COLORS = [
-            {on:'#ff3333',off:'#3a0808',label:'A'},
-            {on:'#33ff66',off:'#083a12',label:'B'},
-            {on:'#3366ff',off:'#080c3a',label:'C'},
+        // ── PUZZLE C: SEQUENCE (6 buttons, 6 rounds, reset on fail) ──────
+        const SO_COLORS=[
+            {on:'#ff2222',off:'#3a0505',label:'A'},
+            {on:'#22ff44',off:'#053a10',label:'B'},
+            {on:'#2244ff',off:'#050a3a',label:'C'},
             {on:'#ffcc00',off:'#3a2e00',label:'D'},
+            {on:'#ff44ff',off:'#3a053a',label:'E'},
+            {on:'#44ffff',off:'#053a3a',label:'F'},
         ];
-        const SO_BTN_POS = [{x:100,y:120},{x:260,y:120},{x:100,y:260},{x:260,y:260}];
-        const SO_BTN_SIZE = 90;
+        const SO_BTN_POS=[{x:55,y:110},{x:195,y:110},{x:335,y:110},{x:55,y:250},{x:195,y:250},{x:335,y:250}];
+        const SO_BTN_SIZE=85;
 
-        function initSequencePuzzle() {
-            soSequence = [Math.floor(Math.random()*4), Math.floor(Math.random()*4),
-                          Math.floor(Math.random()*4), Math.floor(Math.random()*4)];
-            soPlayerSeq = []; soRound = 0; soState = 'watching';
-            soFlashing = []; soFlashTimer = 0;
+        function initSequencePuzzle(){
+            soSequence=[];
+            for(let i=0;i<6;i++)soSequence.push(Math.floor(Math.random()*6));
+            soPlayerSeq=[]; soRound=0; soState='watching'; soFlashing=[];
             startSoShow();
         }
-
-        function startSoShow() {
-            soState = 'watching';
-            soPlayerSeq = [];
-            // Build flash queue for rounds 0..soRound
-            soFlashing = [];
-            for (let i=0;i<=soRound;i++) {
-                soFlashing.push({btnIdx:soSequence[i], timer:0.45, gap:0.2, phase:'on'});
-            }
-            soFlashTimer = 0;
-            elPuzzleStatus.innerText = `OBSERVE SEQUENCE — ROUND ${soRound+1} / ${soSequence.length}`;
+        function startSoShow(){
+            soState='watching'; soPlayerSeq=[]; soFlashing=[];
+            const ft=Math.max(0.22,0.48-soRound*0.04);
+            const gt=Math.max(0.08,0.18-soRound*0.02);
+            for(let i=0;i<=soRound;i++)soFlashing.push({btnIdx:soSequence[i],timer:ft,gap:gt,phase:'on'});
+            elPuzzleStatus.innerText='OBSERVE \u2014 ROUND '+(soRound+1)+' / '+soSequence.length;
         }
-
-        function soClickBtn(btnIdx) {
-            if(soState!=='input') return;
-            soPlayerSeq.push(btnIdx);
-            playPuzzleTick();
-            // Flash the pressed button briefly
-            soFlashing.push({btnIdx, timer:0.12, phase:'flash', gap:0});
-
-            // Check correctness
-            const pos = soPlayerSeq.length-1;
-            if (soPlayerSeq[pos] !== soSequence[pos]) {
+        function soClickBtn(btnIdx){
+            if(soState!=='input')return;
+            soPlayerSeq.push(btnIdx); playPuzzleTick();
+            soFlashing.push({btnIdx,timer:0.10,phase:'flash',gap:0});
+            const pos=soPlayerSeq.length-1;
+            if(soPlayerSeq[pos]!==soSequence[pos]){
                 soState='failed'; playPuzzleFail();
-                elPuzzleStatus.innerText='INCORRECT — REPLAYING SEQUENCE';
-                setTimeout(()=>startSoShow(), 1400);
-                return;
+                elPuzzleStatus.innerText='WRONG \u2014 RESETTING TO ROUND 1';
+                soRound=0; setTimeout(()=>startSoShow(),1600); return;
             }
-            if (soPlayerSeq.length > soRound) {
-                // Completed this round
+            if(soPlayerSeq.length>soRound){
                 soRound++;
-                if (soRound >= soSequence.length) {
-                    // All done
-                    solvePuzzle(activePuzzle);
-                } else {
-                    setTimeout(()=>startSoShow(), 600);
-                }
+                if(soRound>=soSequence.length) solvePuzzle(activePuzzle);
+                else setTimeout(()=>startSoShow(),500);
             }
         }
-
-        function drawSequencePuzzle(delta) {
+        function drawSequencePuzzle(delta){
+            soLastDelta=delta||0.016;
             const W=480,H=400;
-            pCtx.fillStyle='#050508'; pCtx.fillRect(0,0,W,H);
-            pCtx.fillStyle='#404060'; pCtx.font='bold 10px Courier New';
-            pCtx.fillText('SEQUENCE OVERRIDE — MEMORIZE & REPEAT',30,22);
-
-            // Animate flash queue
-            if(soFlashing.length>0 && soState==='watching') {
+            pCtx.fillStyle='#040408'; pCtx.fillRect(0,0,W,H);
+            for(let i=0;i<200;i++){pCtx.fillStyle=`rgba(0,0,0,${Math.random()*0.1})`;pCtx.fillRect(Math.random()*W,Math.random()*H,Math.random()*5+1,2);}
+            pCtx.fillStyle='#0a0010'; pCtx.fillRect(0,0,W,46);
+            pCtx.fillStyle='#cc44ff'; pCtx.font='bold 11px Courier New';
+            pCtx.fillText('\u25b6 SEQ-LOCK \u2014 MEMORIZE & REPEAT ALL 6 ROUNDS',30,16);
+            pCtx.fillStyle='#663388'; pCtx.font='9px Courier New';
+            pCtx.fillText('WRONG INPUT RESETS TO ROUND 1 \u00b7 SPEED INCREASES EACH ROUND',30,34);
+            if(soFlashing.length>0&&soState==='watching'){
                 const f=soFlashing[0];
-                if(f.phase==='on'){
-                    f.timer-=(delta||0.016);
-                    if(f.timer<=0){f.phase='off';f.timer=f.gap;}
-                } else {
-                    f.timer-=(delta||0.016);
-                    if(f.timer<=0){ soFlashing.shift(); if(soFlashing.length===0)soState='input'; }
-                }
+                if(f.phase==='on'){f.timer-=soLastDelta;if(f.timer<=0){f.phase='off';f.timer=f.gap;}}
+                else{f.timer-=soLastDelta;if(f.timer<=0){soFlashing.shift();if(soFlashing.length===0)soState='input';}}
             }
-
-            // Draw 4 buttons
             SO_BTN_POS.forEach((pos,i)=>{
-                const isFlashing = soFlashing.length>0 && soFlashing[0].phase==='on' && soFlashing[0].btnIdx===i;
-                const col = SO_COLORS[i];
-                const active = isFlashing;
-
-                // Button shadow/base
-                pCtx.fillStyle='#0a0a0c';
-                pCtx.fillRect(pos.x-2,pos.y-2,SO_BTN_SIZE+4,SO_BTN_SIZE+4);
-
-                // Button face (depressed if active)
-                const depY = active ? 3 : 0;
-                pCtx.fillStyle = active ? col.on : col.off;
-                pCtx.fillRect(pos.x, pos.y+depY, SO_BTN_SIZE, SO_BTN_SIZE-depY);
-
-                // Button label
-                pCtx.fillStyle = active ? '#ffffff' : col.on+'88';
-                pCtx.font = `bold 22px Courier New`;
-                pCtx.textAlign='center';
-                pCtx.fillText(col.label, pos.x+SO_BTN_SIZE/2, pos.y+SO_BTN_SIZE/2+depY+8);
-                pCtx.textAlign='left';
-
-                // Emissive glow border
-                if(active){
-                    pCtx.shadowColor=col.on; pCtx.shadowBlur=20;
-                    pCtx.strokeStyle=col.on; pCtx.lineWidth=2;
-                    pCtx.strokeRect(pos.x,pos.y+depY,SO_BTN_SIZE,SO_BTN_SIZE-depY);
-                    pCtx.shadowBlur=0;
-                }
+                const isFlashing=soFlashing.length>0&&soFlashing[0].phase==='on'&&soFlashing[0].btnIdx===i;
+                const isPlayerFlash=soFlashing.some(f=>f.phase==='on'&&f.btnIdx===i&&f.gap===0);
+                const active=isFlashing||isPlayerFlash;
+                const col=SO_COLORS[i]; const depY=active?4:0;
+                pCtx.fillStyle='rgba(0,0,0,0.7)';pCtx.fillRect(pos.x+4,pos.y+4,SO_BTN_SIZE,SO_BTN_SIZE);
+                pCtx.fillStyle=active?col.on:col.off;pCtx.fillRect(pos.x,pos.y+depY,SO_BTN_SIZE,SO_BTN_SIZE-depY);
+                if(!active){pCtx.fillStyle='rgba(255,255,255,0.08)';pCtx.fillRect(pos.x,pos.y,SO_BTN_SIZE,3);}
+                pCtx.fillStyle=active?'#ffffff':col.on+'aa';
+                pCtx.font='bold 20px Courier New';pCtx.textAlign='center';
+                pCtx.fillText(col.label,pos.x+SO_BTN_SIZE/2,pos.y+SO_BTN_SIZE/2+depY+7);pCtx.textAlign='left';
+                if(active){pCtx.shadowColor=col.on;pCtx.shadowBlur=22;pCtx.strokeStyle=col.on;pCtx.lineWidth=2;pCtx.strokeRect(pos.x,pos.y+depY,SO_BTN_SIZE,SO_BTN_SIZE-depY);pCtx.shadowBlur=0;}
             });
-
-            // Dithered gradient hint — dots pattern across all buttons
-            pCtx.fillStyle='rgba(255,255,255,0.018)';
-            for(let dx=0;dx<W;dx+=4) for(let dy=0;dy<H;dy+=4) if((dx+dy)%8===0) pCtx.fillRect(dx,dy,2,2);
-
-            // Round indicator
-            pCtx.fillStyle='#304050'; pCtx.font='9px Courier New';
+            pCtx.fillStyle='rgba(255,255,255,0.015)';
+            for(let dx=0;dx<W;dx+=4)for(let dy=0;dy<H;dy+=4)if((dx+dy)%8===0)pCtx.fillRect(dx,dy,2,2);
+            const seg=56;
             for(let i=0;i<soSequence.length;i++){
-                pCtx.fillStyle = i<soRound ? '#00ff88' : i===soRound?'#ffffff':'#202020';
-                pCtx.fillRect(30+i*24, H-24, 18, 10);
+                const rx=30+i*seg,ry=H-22;
+                pCtx.fillStyle=i<soRound?'#00ff88':i===soRound?'#ffffff':'#1a1a1a';
+                pCtx.fillRect(rx,ry,seg-4,12);
+                pCtx.fillStyle=i<soRound?'#004422':i===soRound?'#333':'#0a0a0a';
+                pCtx.font='8px Courier New';pCtx.textAlign='center';
+                pCtx.fillText(i+1,rx+(seg-4)/2,ry+9);pCtx.textAlign='left';
             }
         }
 
-        // ================================================================
-        //  PUZZLE DRAW DISPATCHER
-        // ================================================================
-        let _pLastT = 0;
-        function drawPuzzle(nowT) {
-            if (!puzzleOpen || !activePuzzle) return;
-            const dt = nowT ? (nowT-_pLastT)/1000 : 0.016; _pLastT=nowT||_pLastT;
-            if (activePuzzle.type==='power')    drawPowerPuzzle();
-            if (activePuzzle.type==='fuse')     drawFusePuzzle();
-            if (activePuzzle.type==='sequence') drawSequencePuzzle(dt);
-            if (puzzleOpen) requestAnimationFrame(drawPuzzle);
+        // ── DRAW DISPATCHER ───────────────────────────────────────────────
+        let _pLastT=0;
+        function drawPuzzle(nowT){
+            if(!puzzleOpen||!activePuzzle)return;
+            const dt=nowT?Math.min((nowT-_pLastT)/1000,0.05):0.016; _pLastT=nowT||_pLastT;
+            if(activePuzzle.type==='power')    drawPowerPuzzle();
+            if(activePuzzle.type==='fuse')     drawFusePuzzle();
+            if(activePuzzle.type==='sequence') drawSequencePuzzle(dt);
+            if(puzzleOpen) requestAnimationFrame(drawPuzzle);
         }
 
-        // ================================================================
-        //  PUZZLE CANVAS CLICK HANDLER
-        // ================================================================
-        elPuzzleCanvas.addEventListener('click', (e)=>{
-            if (!puzzleOpen || !activePuzzle) return;
-            const rect = elPuzzleCanvas.getBoundingClientRect();
-            const mx = (e.clientX-rect.left)*(480/rect.width);
-            const my = (e.clientY-rect.top)*(400/rect.height);
-
-            if (activePuzzle.type==='power') {
-                const pad=30,cellW=(480-pad*2)/PR_SIZE,cellH=(400-pad*2-40)/PR_SIZE;
-                const c=Math.floor((mx-pad)/cellW), r=Math.floor((my-pad-40)/cellH);
+        // ── CANVAS CLICK HANDLER ─────────────────────────────────────────
+        elPuzzleCanvas.addEventListener('click',(e)=>{
+            if(!puzzleOpen||!activePuzzle)return;
+            const rect=elPuzzleCanvas.getBoundingClientRect();
+            const mx=(e.clientX-rect.left)*(480/rect.width);
+            const my=(e.clientY-rect.top)*(400/rect.height);
+            if(activePuzzle.type==='power'){
+                const pad=28,cellW=(480-pad*2)/PR_SIZE,cellH=(400-pad*2-50)/PR_SIZE;
+                const c=Math.floor((mx-pad)/cellW),r=Math.floor((my-pad-50)/cellH);
                 if(r>=0&&r<PR_SIZE&&c>=0&&c<PR_SIZE){
-                    prGrid[r][c].rot=(prGrid[r][c].rot+1)%4;
-                    playPuzzleTick(); prCheckPower();
-                    if(prIsSolved()) solvePuzzle(activePuzzle);
-                    else drawPowerPuzzle();
+                    prGrid[r][c].rot=(prGrid[r][c].rot+1)%4; playPuzzleTick(); prCheckPower();
+                    if(prIsSolved())solvePuzzle(activePuzzle);
                 }
             }
-            if (activePuzzle.type==='fuse') {
-                const pad=40,cellW=(480-pad*2)/4,cellH=(400-pad*2-20)/4;
-                const c=Math.floor((mx-pad)/cellW), r=Math.floor((my-pad-8)/cellH);
-                if(r>=0&&r<4&&c>=0&&c<4){
+            if(activePuzzle.type==='fuse'){
+                const pad=30,cellW=(480-pad*2)/FUSE_SIZE,cellH=(400-pad*2-50)/FUSE_SIZE;
+                const c=Math.floor((mx-pad)/cellW),r=Math.floor((my-pad-50)/cellH);
+                if(r>=0&&r<FUSE_SIZE&&c>=0&&c<FUSE_SIZE){
                     fuseSlide(r,c);
-                    if(fuseIsSolved()) solvePuzzle(activePuzzle);
-                    else drawFusePuzzle();
+                    if(fuseIsSolved())solvePuzzle(activePuzzle);
                 }
             }
-            if (activePuzzle.type==='sequence' && soState==='input') {
+            if(activePuzzle.type==='sequence'&&soState==='input'){
                 SO_BTN_POS.forEach((pos,i)=>{
-                    if(mx>=pos.x&&mx<=pos.x+SO_BTN_SIZE&&my>=pos.y&&my<=pos.y+SO_BTN_SIZE){
-                        soClickBtn(i);
-                    }
+                    if(mx>=pos.x&&mx<=pos.x+SO_BTN_SIZE&&my>=pos.y&&my<=pos.y+SO_BTN_SIZE)soClickBtn(i);
                 });
             }
         });
+
 
         // Escape to close puzzle without solving
         document.addEventListener('keydown', (e)=>{
