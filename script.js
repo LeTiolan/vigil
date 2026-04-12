@@ -181,11 +181,19 @@
         const rCtx=radarCanvas.getContext('2d');
         const RC=radarCanvas.width/2, R_MAX=105, R_SCL=(RC-12)/R_MAX;
 // Puzzle overlay DOM refs
-        const elPuzzleOverlay = document.getElementById('puzzle-overlay');
-        const elPuzzleCanvas  = document.getElementById('puzzle-canvas');
-        const elPuzzleTitle   = document.getElementById('puzzle-title');
-        const elPuzzleStatus  = document.getElementById('puzzle-status');
-        const pCtx = elPuzzleCanvas.getContext('2d');
+const elPuzzleOverlay = document.getElementById('puzzle-overlay');
+const elPuzzleCanvas  = document.getElementById('puzzle-canvas');
+const elPuzzleTitle   = document.getElementById('puzzle-title');
+const elPuzzleStatus  = document.getElementById('puzzle-status');
+
+// CRASH-PROOF FIX: Only get context if the canvas actually exists in the HTML
+let pCtx = null;
+if (elPuzzleCanvas) {
+    pCtx = elPuzzleCanvas.getContext('2d');
+} else {
+    console.error("WARNING: 'puzzle-canvas' is missing. Puzzles will not draw, but game will load.");
+}
+
 const elPromptText = document.getElementById('prompt-text');
 
         // ================================================================
