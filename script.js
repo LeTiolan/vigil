@@ -1,5 +1,4 @@
-
-        import * as THREE from 'three';
+import * as THREE from 'three';
 
      // ================================================================
         //  MAZE GENERATION
@@ -105,8 +104,7 @@
             for(let i=1;i<steps;i++){const t=i/steps,cx=Math.round(g0.x+(g1.x-g0.x)*t),cz=Math.round(g0.z+(g1.z-g0.z)*t);if(cx>=0&&cx<MAZE_SIZE&&cz>=0&&cz<MAZE_SIZE&&maze[cx][cz]===1)return false;}
             return true;
         }
-
-        // ================================================================
+// ================================================================
         //  CONSTANTS & STATE
         // ================================================================
     const TOTAL_ORBS=12, MAX_STAMINA=120; // Lower stamina
@@ -352,7 +350,7 @@ function playFlashlightClick() {
             g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
             o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur);
         }
-        // ================================================================
+// ================================================================
         //  TEXTURES — 256x256 NearestFilter PSX style
         // ================================================================
         function makeTex(c,ru,rv){
@@ -491,7 +489,6 @@ function playFlashlightClick() {
             }
             orbCtx.putImageData(id,0,0);orbTex.needsUpdate=true;
         }
-
 // ================================================================
         //  MATERIALS
         // ================================================================
@@ -692,6 +689,7 @@ const startPos=getPos(1,1);
 
            let doorState='closed';
         const doorWP=getPos(exitGridX,exitGridZ);
+        const TERM_WX=doorWP.x, TERM_WZ=doorWP.z;
         const doorGroup=new THREE.Group();
         doorGroup.position.set(doorWP.x,0,doorWP.z);
 
@@ -753,8 +751,7 @@ const startPos=getPos(1,1);
                 }
             }
         }
-
-        function stopAllDoorAudio(){
+function stopAllDoorAudio(){
             const a=doorAudio;
             try{if(a.klaxonOsc)a.klaxonOsc.stop();if(a.grindOsc)a.grindOsc.stop();
                 if(a.rumbleOsc)a.rumbleOsc.stop();if(a.steamSrc)a.steamSrc.stop();
@@ -764,7 +761,9 @@ const startPos=getPos(1,1);
         // GEAR FACTORY — used throughout the door
         const mkGear=(r,depth,teeth,mat)=>{
             const g=new THREE.Group();
-            g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(r*0.82,r*0.82,depth,18),mat||matChrome),{rotation:{x:Math.PI/2}}));
+            const cyl=new THREE.Mesh(new THREE.CylinderGeometry(r*0.82,r*0.82,depth,18),mat||matChrome);
+            cyl.rotation.x=Math.PI/2;
+            g.add(cyl);
             const hub=new THREE.Mesh(new THREE.CylinderGeometry(r*0.24,r*0.24,depth+0.25,10),matDarkMetal); hub.rotation.x=Math.PI/2; g.add(hub);
             const tGeo=new THREE.BoxGeometry((Math.PI*r*2)/(teeth*2.1),r*0.28,depth*0.88);
             for(let i=0;i<teeth;i++){
@@ -810,8 +809,7 @@ const startPos=getPos(1,1);
             const bLen=6.2; const brace=new THREE.Mesh(new THREE.BoxGeometry(0.3,bLen,0.5),matDarkMetal);
             brace.position.set(xs*3.2,FH-0.5,FAR+0.3); brace.rotation.z=xs*0.5; doorGroup.add(brace);
         }
-
-        // ── WARNING SIRENS ────────────────────────────────────────────────
+// ── WARNING SIRENS ────────────────────────────────────────────────
         const sirens=[];
         const mkSiren=(x,z)=>{
             const sg=new THREE.Group(); sg.position.set(x,FH-1.2,z);
@@ -963,6 +961,137 @@ const startPos=getPos(1,1);
         scene.add(doorGroup);
 
         // ================================================================
+        //  COLLECTIBLE ORBS
+        // ================================================================
+        const orbs = [];
+        {
+            const spawnP = getPos(1, 1);
+            const doorP = getPos(exitGridX, exitGridZ);
+            const orbCandidates = emptyCells.filter(c => {
+                const p = getPos(c.x, c.z);
+                return Math.hypot(p.x - spawnP.x, p.z - spawnP.z) > 10 &&
+                       Math.hypot(p.x - doorP.x, p.z - doorP.z) > 10;
+            });
+            for (let i = orbCandidates.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [orbCandidates[i], orbCandidates[j]] = [orbCandidates[j], orbCandidates[i]];
+            }
+
+            const orbGeo = new THREE.SphereGeometry(0.55, 12, 10);
+            const ringGeo = new THREE.SphereGeometry(0.85, 12, 10);
+
+            for (let n = 0; n < TOTAL_ORBS && n < orbCandidates.length; n++) {
+                const p = getPos(orbCandidates[n].x, orbCandidates[n].z);
+
+                const orbMat = new THREE.MeshBasicMaterial({ map: orbTex, transparent: true, depthWrite: false });
+                const orb = new THREE.Mesh(orbGeo, orbMat);
+                orb.position.set(p.x, 2.0, p.z);
+
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0x00eaff, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                orb.add(ring);
+
+                const orbLight = new THREE.PointLight(0x00eaff, 1.2, 9);
+                orb.add(orbLight);
+
+                orb.userData = { ringMat };
+                scene.add(orb);
+                orbs.push(orb);
+            }
+        }
+// ================================================================
+        //  ENEMIES — Phantom AI bodies
+        // ================================================================
+        const enemies = [];
+        {
+            const spawnP = getPos(1, 1);
+            const enemyCandidates = emptyCells.filter(c => {
+                const p = getPos(c.x, c.z);
+                return Math.hypot(p.x - spawnP.x, p.z - spawnP.z) > 30;
+            });
+            for (let i = enemyCandidates.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [enemyCandidates[i], enemyCandidates[j]] = [enemyCandidates[j], enemyCandidates[i]];
+            }
+
+            const midGeo = new THREE.SphereGeometry(1.0, 10, 8);
+            const coreGeo = new THREE.SphereGeometry(0.5, 10, 8);
+
+            for (let n = 0; n < ENEMY_NAMES.length && n < enemyCandidates.length; n++) {
+                const cell = enemyCandidates[n];
+                const p = getPos(cell.x, cell.z);
+
+                const enemy = new THREE.Group();
+                enemy.position.set(p.x, 2.2, p.z);
+
+                const midMat = new THREE.MeshLambertMaterial({ color: 0x2a0050, transparent: true, opacity: 0.55 });
+                const midMesh = new THREE.Mesh(midGeo, midMat);
+                midMesh.scale.set(0.7, 1.5, 0.7);
+                enemy.add(midMesh);
+
+                const coreMat = new THREE.MeshLambertMaterial({ color: 0x110016, transparent: true, opacity: 0.85 });
+                const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+                coreMesh.position.set(0, 0.8, 0);
+                enemy.add(coreMesh);
+
+                const eyeL = new THREE.PointLight(0xff2020, 0, 3);
+                eyeL.position.set(-0.18, 0.85, 0.42);
+                enemy.add(eyeL);
+                const eyeR = new THREE.PointLight(0xff2020, 0, 3);
+                eyeR.position.set(0.18, 0.85, 0.42);
+                enemy.add(eyeR);
+
+                const bodyLight = new THREE.PointLight(0x8800aa, 0.8, 10);
+                bodyLight.position.set(0, 0.5, 0);
+                enemy.add(bodyLight);
+
+                enemy.userData = {
+                    name: ENEMY_NAMES[n],
+                    state: 'patrol',
+                    targetPos: new THREE.Vector3(p.x, 2.2, p.z),
+                    lastGrid: { x: cell.x, z: cell.z },
+                    currentSpeed: PATROL_SPD,
+                    wobbleSeed: Math.random() * Math.PI * 2,
+                    pathQueue: [],
+                    pathUpdateT: 0,
+                    huntTimer: 0,
+                    alertTimer: 0,
+                    searchTimer: 0,
+                    groupAlerted: false,
+                    groupTimer: 0,
+                    lastKnownGrid: null,
+                    lastKnownPos: null,
+                    playerMemory: [],
+                    predictedPos: null,
+                    coreMesh, midMesh, eyeL, eyeR, light: bodyLight,
+                };
+
+                scene.add(enemy);
+                enemies.push(enemy);
+            }
+        }
+
+        // ================================================================
+        //  ALERT SYSTEM
+        // ================================================================
+        function triggerAlert(enemy, isGroupAlert) {
+            const ud = enemy.userData;
+            if (ud.state !== 'hunt') { ud.pathQueue = []; ud.pathUpdateT = 0; }
+            ud.state = 'hunt';
+            ud.huntTimer = HUNT_DUR;
+            ud.alertTimer = ALERT_DUR;
+            ud.lastKnownGrid = worldToGrid(camera.position.x, camera.position.z);
+            ud.lastKnownPos = { x: camera.position.x, z: camera.position.z };
+            if (isGroupAlert) { ud.groupAlerted = true; ud.groupTimer = 3.0; }
+        }
+
+        function alertAllInRadius(wx, wz, radius) {
+            enemies.forEach(enemy => {
+                const d = Math.hypot(enemy.position.x - wx, enemy.position.z - wz);
+                if (d < radius) triggerAlert(enemy, true);
+            });
+        }
+// ================================================================
         //  MENU + INPUT
         // ================================================================
         const uiContainer=document.getElementById('main-ui');
@@ -1014,9 +1143,7 @@ const startPos=getPos(1,1);
             }
         });
         document.addEventListener('keyup',e=>keys[e.code]=false);
-       
-
-        // ================================================================
+       // ================================================================
         //  UPDATE LOOP
         // ================================================================
         function update(){
@@ -1123,7 +1250,6 @@ corridorLights.forEach(cl => {
         const dx = camera.position.x - cl.light.position.x;
         const dz = camera.position.z - cl.light.position.z;
         const distSq = dx*dx + dz*dz;
-
         // ---> THE NEW FIX: Combine Distance AND Intensity <---
         // The shadow map only re-draws if the light is CLOSE (< 60 units) 
         // AND the light is actually ON (intensity > 0.1).
