@@ -108,6 +108,7 @@ body {
     background: #000; opacity: 0; pointer-events: none;
     z-index: 105; transition: opacity 3s ease-in-out;
 }
+
 /* =============================================
    MAIN MENU — all original styles preserved
    ============================================= */
