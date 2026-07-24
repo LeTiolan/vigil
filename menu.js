@@ -1,4 +1,4 @@
-import { state, keys, SENSITIVITY } from './state.js';
+import { state, SENSITIVITY } from './state.js';
 import { camera } from './scene-setup.js';
 import { playUISound, playTerminalClick, initIndustrialAudio } from './audio.js';
 import { doorGroup, TERM_WX, TERM_WZ, termBtn, termScreenMat, termLight, ledMat, sirens, setDoorState, initDoorAudio } from './door.js';
@@ -47,8 +47,6 @@ document.addEventListener('mousemove', e => {
 });
 
 document.addEventListener('keydown', e => {
-    keys[e.code] = true;
-
     // --- Exit terminal: E activates it when all objectives done ---
     if (e.code === 'KeyE' && state.gameActive && !state.gameWon && doorState === 'ready_terminal') {
         if (Math.hypot(camera.position.x - TERM_WX, camera.position.z - TERM_WZ) < 9) {
@@ -60,4 +58,3 @@ document.addEventListener('keydown', e => {
         }
     }
 });
-document.addEventListener('keyup', e => keys[e.code] = false);
