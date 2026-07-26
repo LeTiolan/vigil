@@ -84,6 +84,76 @@ export function playOrbChime() {
     });
 }
 
+// Deep guttural roar/scream — layered sub-bass growl, a wobbling mid
+// growl voice, and a swept noise rasp, all through soft-clip distortion
+// so it reads as guttural rather than a clean tone.
+export function playRoar() {
+    resume();
+    const t = audioCtx.currentTime;
+    const dur = 1.6;
+
+    const master = audioCtx.createGain();
+    master.gain.setValueAtTime(0.0001, t);
+    master.gain.exponentialRampToValueAtTime(0.55, t + 0.08);
+    master.gain.exponentialRampToValueAtTime(0.3, t + 0.5);
+    master.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+    const shaper = audioCtx.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) { const x = (i / 255) * 2 - 1; curve[i] = Math.tanh(x * 3.2); }
+    shaper.curve = curve; shaper.oversample = '2x';
+    shaper.connect(master); master.connect(audioCtx.destination);
+
+    // Sub-bass growl, pitch sagging the whole duration
+    const sub = audioCtx.createOscillator(); sub.type = 'sawtooth';
+    sub.frequency.setValueAtTime(90, t); sub.frequency.exponentialRampToValueAtTime(46, t + dur);
+    const subGain = audioCtx.createGain(); subGain.gain.value = 0.9;
+    sub.connect(subGain); subGain.connect(shaper); sub.start(t); sub.stop(t + dur);
+
+    // Mid growl voice with a wobble LFO for texture
+    const mid = audioCtx.createOscillator(); mid.type = 'sawtooth';
+    mid.frequency.setValueAtTime(170, t); mid.frequency.exponentialRampToValueAtTime(88, t + dur);
+    const wobble = audioCtx.createOscillator(); wobble.frequency.value = 14;
+    const wobbleGain = audioCtx.createGain(); wobbleGain.gain.value = 25;
+    wobble.connect(wobbleGain); wobbleGain.connect(mid.frequency); wobble.start(t); wobble.stop(t + dur);
+    const midGain = audioCtx.createGain(); midGain.gain.value = 0.6;
+    mid.connect(midGain); midGain.connect(shaper); mid.start(t); mid.stop(t + dur);
+
+    // Swept noise rasp for scream breathiness
+    const bufSize = Math.floor(audioCtx.sampleRate * dur);
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource(); noise.buffer = buf;
+    const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(900, t); bp.frequency.exponentialRampToValueAtTime(300, t + dur); bp.Q.value = 1.4;
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.35, t + 0.15);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    noise.connect(bp); bp.connect(noiseGain); noiseGain.connect(shaper); noise.start(t); noise.stop(t + dur);
+}
+
+// Heavy footfall thud for the creatures' walk/run cycle.
+export function playStomp(vol = 1) {
+    resume();
+    const t = audioCtx.currentTime;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(72, t); o.frequency.exponentialRampToValueAtTime(34, t + 0.18);
+    g.gain.setValueAtTime(0.5 * vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + 0.22);
+
+    const bufSize = Math.floor(audioCtx.sampleRate * 0.08);
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 2);
+    const n = audioCtx.createBufferSource(); n.buffer = buf;
+    const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 400;
+    const ng = audioCtx.createGain(); ng.gain.value = 0.3 * vol;
+    n.connect(lp); lp.connect(ng); ng.connect(audioCtx.destination); n.start(t);
+}
+
 export function playFlashlightClick() {
     if (!audioCtx) return;
     const t = audioCtx.currentTime;
