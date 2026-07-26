@@ -1,7 +1,7 @@
 // ================================================================
 //  MAZE GENERATION + PATHFINDING
 // ================================================================
-export const MAZE_SIZE = 25, TILE_SIZE = 12;
+export const MAZE_SIZE = 33, TILE_SIZE = 9;
 
 export const maze = Array(MAZE_SIZE).fill(null).map(() => Array(MAZE_SIZE).fill(1));
 export const emptyCells = [];
