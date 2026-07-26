@@ -110,6 +110,19 @@ function mkHazardTex() {
 }
 
 // Orb animated fluid canvas — updated each frame
+// Cracked igneous stone — golem body skin. The glow itself comes from
+// separate emissive crack-strip meshes layered on top (so it can pulse);
+// this texture just supplies the dark rock detail underneath.
+function mkGolemStoneTex() {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 128; const ctx = c.getContext('2d');
+    ctx.fillStyle = '#39352f'; ctx.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 3500; i++) { const g = 20 + Math.random() * 42; ctx.fillStyle = `rgba(${g + 22},${g + 16},${g},${Math.random() * 0.3})`; ctx.fillRect(Math.random() * 128, Math.random() * 128, Math.random() * 3 + 1, Math.random() * 3 + 1); }
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1.4;
+    for (let i = 0; i < 12; i++) { let x = Math.random() * 128, y = Math.random() * 128; ctx.beginPath(); ctx.moveTo(x, y); for (let s = 0; s < 5; s++) { x += Math.random() * 16 - 8; y += Math.random() * 16 - 8; ctx.lineTo(x, y); } ctx.stroke(); }
+    for (let i = 0; i < 220; i++) { ctx.fillStyle = `rgba(200,190,170,${Math.random() * 0.08})`; ctx.fillRect(Math.random() * 128, Math.random() * 128, 1, 1); }
+    return makeTex(c, 1.5, 2);
+}
+
 const orbCanvas = document.createElement('canvas'); orbCanvas.width = 64; orbCanvas.height = 64;
 const orbCtx = orbCanvas.getContext('2d');
 export const orbTex = new THREE.CanvasTexture(orbCanvas);
@@ -151,6 +164,7 @@ export const matSteel = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughn
 export const matChrome = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.2 });
 export const matHazard = new THREE.MeshStandardMaterial({ map: mkHazardTex(), roughness: 0.8 });
 export const matWarnYellow = new THREE.MeshStandardMaterial({ color: 0xaa8800, roughness: 0.8 });
+export const matGolem = new THREE.MeshStandardMaterial({ map: mkGolemStoneTex(), color: 0x8c8578, roughness: 0.95, metalness: 0.05 });
 
 // These stay Basic because they emit their own light/color
 export const matGlassRed = new THREE.MeshBasicMaterial({ color: 0xdd0000, transparent: true, opacity: 0.85 });
