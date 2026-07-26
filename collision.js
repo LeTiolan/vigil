@@ -20,6 +20,17 @@ export function registerSolid(m, live) {
     if (!live) cachedBoxes.set(m, new THREE.Box3().setFromObject(m));
 }
 
+// World props (fallen wall debris, crates) can be anywhere on the map and
+// are always static, so — unlike door parts — they're checked everywhere,
+// not gated by proximity to one location. List stays short (tens of
+// entries), so an unconditional scan every isWall() call is cheap.
+const worldSolids = [];
+export function registerPropSolid(m) {
+    worldSolids.push(new THREE.Box3().setFromObject(m));
+}
+
+const _pBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+
 export function isWall(x, z, r, doorGroup) {
     const off = Math.floor(MAZE_SIZE / 2);
     const x0 = Math.floor((x - r + TILE_SIZE / 2) / TILE_SIZE) + off - 1, x1 = Math.floor((x + r + TILE_SIZE / 2) / TILE_SIZE) + off + 1;
@@ -30,13 +41,18 @@ export function isWall(x, z, r, doorGroup) {
         const cx = Math.max(wx - TILE_SIZE / 2, Math.min(x, wx + TILE_SIZE / 2)), cz = Math.max(wz - TILE_SIZE / 2, Math.min(z, wz + TILE_SIZE / 2));
         if ((x - cx) * (x - cx) + (z - cz) * (z - cz) < r * r) return true;
     }
-    if (doorGroup && Math.abs(x - doorGroup.position.x) < TILE_SIZE && Math.abs(z - doorGroup.position.z) < TILE_SIZE) {
-        const pb = new THREE.Box3(new THREE.Vector3(x - r, 0, z - r), new THREE.Vector3(x + r, player.height, z + r));
-        for (const sp of solidDoorParts) {
-            const cached = cachedBoxes.get(sp);
-            if (cached) { if (pb.intersectsBox(cached)) return true; }
-            else { partBox.setFromObject(sp); if (pb.intersectsBox(partBox)) return true; }
+
+    const nearDoor = doorGroup && Math.abs(x - doorGroup.position.x) < TILE_SIZE && Math.abs(z - doorGroup.position.z) < TILE_SIZE;
+    if (nearDoor || worldSolids.length) {
+        _pBox.min.set(x - r, 0, z - r); _pBox.max.set(x + r, player.height, z + r);
+        if (nearDoor) {
+            for (const sp of solidDoorParts) {
+                const cached = cachedBoxes.get(sp);
+                if (cached) { if (_pBox.intersectsBox(cached)) return true; }
+                else { partBox.setFromObject(sp); if (_pBox.intersectsBox(partBox)) return true; }
+            }
         }
+        for (const box of worldSolids) { if (_pBox.intersectsBox(box)) return true; }
     }
     return false;
 }
