@@ -15,8 +15,10 @@ export const TOTAL_ORBS = 12, MAX_STAMINA = 120;
 // AI tuning
 export const ALERT_DUR = 11.0, HUNT_DUR = 8.0, SEARCH_DUR = 14.0;
 export const LIGHT_RANGE = 36, CONE_COS = Math.cos(58 * Math.PI / 180);
-export const PATROL_SPD = 0.15, HUNT_SPD = 0.40, SEARCH_SPD = 0.12;
-export const ENEMY_NAMES = ['REVENANT', 'UNIT-07', 'SPECTER-X', 'THE HOLLOW', 'SHADE-03', 'ECHO-NULL', 'WRAITH', 'ABSENCE'];
+export const PATROL_SPD = 0.045, HUNT_SPD = 0.34, SEARCH_SPD = 0.11, BURST_SPD = 0.62;
+export const TURN_RATE = 9.0; // radians/sec — bigger than the player, but turns tighter/faster
+export const SCREAM_RISE_T = 0.5, SCREAM_HOLD_T = 0.35, SCREAM_SLAM_T = 0.3, BURST_DUR = 1.7;
+export const ENEMY_NAMES = ['REVENANT', 'THE HOLLOW', 'WRAITH'];
 export const SENSITIVITY = 0.002;
 
 export const state = {
